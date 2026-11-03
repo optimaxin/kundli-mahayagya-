@@ -31,6 +31,7 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
+  overflow-x: clip; /* never let a stray element widen the phone viewport */
 }
 ::selection { background: var(--color-saffron-300); }
 

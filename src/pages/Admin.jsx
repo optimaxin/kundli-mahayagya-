@@ -60,6 +60,10 @@ export default function Admin() {
         </div>
       </aside>
       <main className="min-w-0 p-4 pb-24 md:p-8">
+        <div className="mb-3 flex items-center justify-between md:hidden">
+          <Link to="/" className="flex items-center gap-1.5 text-xs font-bold text-slate-500"><Home size={15} />{t('Public site', 'मुख्य साइट')}</Link>
+          <button onClick={() => { sessionStorage.removeItem('km_admin'); setAuthed(false) }} className="flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 active:scale-95"><LogOut size={16} />{t('Logout', 'लॉगआउट')}</button>
+        </div>
         {tab === 'overview' && <Overview />}
         {tab === 'bookings' && <Bookings />}
         {tab === 'scan' && (<><H>{t('Gate scanner', 'द्वार स्कैनर')}</H><Scanner by="Admin" /></>)}

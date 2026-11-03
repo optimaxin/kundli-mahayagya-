@@ -52,7 +52,7 @@ export default function Scanner({ by = '' }) {
 
   // Phones: result first (always visible), then camera, then history. Desktop: camera left, result + history right.
   return (
-    <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-5">
       <div className="contents lg:block">
         <div className="order-2 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div id="km-reader" className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl bg-maroon-950 [&_video]:!w-full [&_video]:!object-cover" style={{ display: on ? 'block' : 'none' }} />

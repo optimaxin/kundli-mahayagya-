@@ -35,9 +35,9 @@ export default function Staff() {
     <div className="min-h-[calc(100vh-4rem)] bg-slate-100 pb-10">
       <div className="mx-auto max-w-5xl px-3 pt-3 sm:px-4 sm:pt-5">
         <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-maroon-900 to-maroon-700 p-3 sm:p-4 text-white shadow-lg">
-          <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-full bg-white/15 font-bold text-gold-300">{me.name[0]}</span>
+          <div className="flex min-w-0 items-center gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-full bg-white/15 font-bold text-gold-300">{me.name[0]}</span>
             <div><div className="text-xs text-maroon-200">{t('Gate volunteer', 'द्वार स्वयंसेवक')}</div><div className="font-bold">{me.name}</div></div></div>
-          <button onClick={() => { sessionStorage.removeItem('km_staff'); setMe(null); setPin('') }} className="flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold hover:bg-white/20"><LogOut size={15} />{t('Logout', 'लॉगआउट')}</button>
+          <button onClick={() => { sessionStorage.removeItem('km_staff'); setMe(null); setPin('') }} className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-maroon-800 shadow active:scale-95"><LogOut size={16} />{t('Logout', 'लॉगआउट')}</button>
         </div>
         <Scanner by={me.name} />
       </div>

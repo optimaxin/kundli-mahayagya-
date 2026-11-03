@@ -1,0 +1,18 @@
+# Load-test overrides. Usage (from the project root):
+#   docker compose -f docker-compose.yml -f loadtest/docker-compose.loadtest.yml up -d --build
+# Rate limiting is disabled because all virtual users share one source IP;
+# the check-in window is disabled so scanner scenarios can run before the event.
+services:
+  api:
+    environment:
+      RUN_MIGRATIONS: "true"
+      RUN_SEED: "true"
+      WEB_CONCURRENCY: "${WEB_CONCURRENCY:-4}"
+      DB_POOL_SIZE: "8"
+      DB_MAX_OVERFLOW: "4"
+      RATE_LIMIT_ENABLED: "false"
+      ENFORCE_CHECKIN_WINDOW: "false"
+      REGISTRATION_MAX_CONCURRENCY: "8"
+      REGISTRATION_MAX_QUEUE: "100"
+      REGISTRATION_QUEUE_TIMEOUT_SECONDS: "5"
+      LOG_LEVEL: "WARNING"

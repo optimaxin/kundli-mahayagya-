@@ -1,0 +1,44 @@
+# Local development stack: PostgreSQL 16 + the API.
+#   docker compose up -d db              # database only (run the API from your venv)
+#   docker compose up -d --build         # database + API
+#   docker compose run --rm api python -m scripts.seed_all
+name: mahayagya
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mahayagya}
+      POSTGRES_USER: ${POSTGRES_USER:-mahayagya}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mahayagya}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/sql/init-test-db.sql:/docker-entrypoint-initdb.d/10-init-test-db.sql:ro
+    command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=256MB"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mahayagya} -d ${POSTGRES_DB:-mahayagya}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mahayagya}:${POSTGRES_PASSWORD:-mahayagya}@db:5432/${POSTGRES_DB:-mahayagya}
+      APP_ENV: ${APP_ENV:-development}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - reports:/app/var/reports
+
+volumes:
+  pgdata:
+  reports:

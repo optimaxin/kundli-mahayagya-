@@ -1,0 +1,27 @@
+[project]
+name = "mahayagya-backend"
+version = "1.0.0"
+description = "2151 Kundiya Mahayagya - registration, Kund allocation, QR passes and check-in API"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "UP", "S"]
+ignore = [
+    "B008",  # FastAPI Depends()/Query() in argument defaults is the framework idiom
+    "S101",  # assert is used for invariants and in tests
+    "E501",  # handled by the formatter / readability over strict length
+    "UP040",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B"]
+"alembic/versions/**" = ["S608"]  # static DDL built from constant table names
+"scripts/**" = ["S603", "S607"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "scripts", "tests"]

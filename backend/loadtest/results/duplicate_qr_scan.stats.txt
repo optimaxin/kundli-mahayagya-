@@ -1,0 +1,20 @@
+mahayagya-api-1 cpu=250.82% mem=401.1MiB / 11.6GiB
+mahayagya-db-1 cpu=20.42% mem=253.6MiB / 11.6GiB
+pg_connections=37 active=1
+mahayagya-api-1 cpu=442.78% mem=401.3MiB / 11.6GiB
+mahayagya-db-1 cpu=56.99% mem=269.8MiB / 11.6GiB
+pg_connections=37 active=2
+mahayagya-api-1 cpu=454.41% mem=401.9MiB / 11.6GiB
+mahayagya-db-1 cpu=53.62% mem=270.3MiB / 11.6GiB
+pg_connections=37 active=1
+mahayagya-api-1 cpu=452.42% mem=401.6MiB / 11.6GiB
+mahayagya-db-1 cpu=56.68% mem=269.8MiB / 11.6GiB
+pg_connections=37 active=1
+mahayagya-api-1 cpu=453.87% mem=401.1MiB / 11.6GiB
+mahayagya-db-1 cpu=54.98% mem=270.7MiB / 11.6GiB
+pg_connections=37 active=1
+mahayagya-api-1 cpu=452.46% mem=401.6MiB / 11.6GiB
+mahayagya-db-1 cpu=54.00% mem=270.2MiB / 11.6GiB
+pg_connections=37 active=1
+mahayagya-api-1 cpu=132.70% mem=401.3MiB / 11.6GiB
+mahayagya-db-1 cpu=0.43% mem=254.4MiB / 11.6GiB

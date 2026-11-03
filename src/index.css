@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Cinzel", "Yatra One", serif;
+  --font-sans: "Outfit", "Hind", system-ui, sans-serif;
+  --color-maroon-50: #fdf3f4;
+  --color-maroon-100: #f9e1e4;
+  --color-maroon-200: #f0b9c0;
+  --color-maroon-500: #a02a3f;
+  --color-maroon-700: #7a1a2d;
+  --color-maroon-800: #5f1423;
+  --color-maroon-900: #430d19;
+  --color-maroon-950: #2a0710;
+  --color-saffron-50: #fff7ed;
+  --color-saffron-100: #ffedd5;
+  --color-saffron-300: #fdba74;
+  --color-saffron-400: #fb9a3c;
+  --color-saffron-500: #f47b20;
+  --color-saffron-600: #d95f0c;
+  --color-gold-300: #f2d27a;
+  --color-gold-400: #e5b94a;
+  --color-gold-500: #c99a2e;
+  --color-cream: #fff9ee;
+  --color-ink: #2b1a14;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+::selection { background: var(--color-saffron-300); }
+
+.font-display { letter-spacing: .02em; font-weight: 700; }
+html[lang="hi"] .font-display { font-family: "Yatra One", "Cinzel", serif; font-weight: 400; line-height: 1.25; }
+.paper {
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(244,123,32,.07), transparent 40%),
+    radial-gradient(circle at 90% 60%, rgba(160,42,63,.06), transparent 40%);
+}
+.gold-text {
+  background: linear-gradient(180deg, #fff1b8 0%, #e5b94a 55%, #b8801c 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.glass { background: rgba(255,255,255,.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.ticket-notch::before, .ticket-notch::after {
+  content: ""; position: absolute; top: 62%; width: 28px; height: 28px; border-radius: 9999px;
+  background: var(--color-cream);
+}
+.ticket-notch::before { left: -14px; }
+.ticket-notch::after { right: -14px; }
+
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+@keyframes flicker { 0%,100% { transform: scale(1) rotate(-1deg); } 50% { transform: scale(1.08,.94) rotate(1.5deg); } }
+@keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.spin-slow { animation: spin-slow 120s linear infinite; }
+.spin-slower { animation: spin-slow 200s linear infinite reverse; }
+.flicker { animation: flicker 2.2s ease-in-out infinite; transform-origin: 50% 90%; }
+.floaty { animation: floaty 5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .spin-slow,.spin-slower,.flicker,.floaty { animation: none; }
+}
+input, select, textarea { font: inherit; }
+
+/* Devanagari conjuncts break with letter-spacing */
+html[lang="hi"] * { letter-spacing: normal !important; }

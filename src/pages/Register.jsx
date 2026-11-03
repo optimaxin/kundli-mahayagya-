@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Flame, Plus, Trash2, User, Users, CalendarCheck, ClipboardCheck, Sunrise, Sunset, AlertCircle } from 'lucide-react'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Field, inputCls } from '../components/ui.jsx'
-import { EVENT, canFit, createBooking, fmtDate, fmtTime, slotStats } from '../lib/db.js'
+import { EVENT, canFit, createBooking, describeError, fmtDate, fmtTime, newKey, slotStats, useSlots } from '../lib/db.js'
 
 const STATES = ['Uttar Pradesh', 'Delhi', 'Rajasthan', 'Madhya Pradesh', 'Haryana', 'Uttarakhand', 'Bihar', 'Gujarat', 'Maharashtra', 'Punjab', 'Himachal Pradesh', 'Jharkhand', 'Chhattisgarh', 'West Bengal', 'Karnataka', 'Tamil Nadu', 'Telangana', 'Andhra Pradesh', 'Kerala', 'Odisha', 'Assam', 'Other']
 const RELS = [['Spouse', 'पति / पत्नी'], ['Parent', 'माता / पिता'], ['Child', 'पुत्र / पुत्री'], ['Sibling', 'भाई / बहन'], ['Relative', 'संबंधी'], ['Friend', 'मित्र / साधक']]
@@ -47,12 +47,15 @@ export default function Register() {
   const [members, setMembers] = useState([{ age: '', gender: 'male', relationship: 'Self', mobile: '' }])
   const [picked, setPicked] = useState([])
   const [ok, setOk] = useState({ satvik: false, consent: false })
+  const slotsVer = useSlots()
+  // One idempotency key per submission attempt; reused if the network drops so a retry never double-books.
+  const keyRef = useRef(newKey())
 
   const setCF = (k) => (e) => setC((p) => ({ ...p, [k]: k === 'mobile' || k === 'alt' ? digits(e.target.value) : e.target.value }))
   const setM = (i, patch) => setMembers((p) => p.map((m, j) => (j === i ? { ...m, ...patch } : m)))
   const n = members.length
   const key = (s) => `${s.date}|${s.session}`
-  const fits = useMemo(() => Object.fromEntries(EVENT.dates.flatMap((d) => Object.keys(EVENT.sessions).map((s) => [`${d}|${s}`, canFit(d, s, n)]))), [n, step])
+  const fits = useMemo(() => Object.fromEntries(EVENT.dates.flatMap((d) => Object.keys(EVENT.sessions).map((s) => [`${d}|${s}`, canFit(d, s, n)]))), [n, step, slotsVer])
 
   const labels = [
     [t('You', 'आप'), User], [t('Family', 'परिवार'), Users], [t('Session', 'सत्र'), CalendarCheck], [t('Confirm', 'पुष्टि'), ClipboardCheck],
@@ -87,30 +90,37 @@ export default function Register() {
   }
   const toggleSlot = (date, session) => {
     const k = `${date}|${session}`
-    setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]))
+    // One session per day: choosing a slot replaces the other slot of the same date.
+    setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p.filter((x) => !x.startsWith(`${date}|`)), k]))
     setErrs({})
   }
   const bulk = (session) => setPicked(EVENT.dates.map((d) => `${d}|${session}`).filter((k) => fits[k]))
 
-  const submit = () => {
+  const submit = async () => {
     if (!validate(3)) return
     setBusy(true)
-    setTimeout(() => {
-      try {
-        const final = members.map((m, i) => (i === 0 ? { ...m, name: c.name.trim(), mobile: c.mobile, self: true } : { ...m, name: m.name.trim() }))
-        const b = createBooking({
-          coordinator: { name: c.name.trim(), mobile: c.mobile, city: c.city.trim(), state: c.state, alt: c.alt, email: c.email, address: c.address, pincode: c.pincode, gotra: c.gotra, sankalp: c.sankalp },
-          members: final,
-          slots: picked.map((k) => { const [date, session] = k.split('|'); return { date, session } }).sort((a, b) => a.date.localeCompare(b.date) || a.session.localeCompare(b.session)),
-        })
-        nav(`/ticket/${b.id}?new=1`, { replace: true })
-      } catch (err) {
-        setBusy(false)
+    setBanner('')
+    try {
+      const final = members.map((m, i) => (i === 0 ? { ...m, name: c.name.trim(), mobile: c.mobile, relationship: 'Self', self: true } : { ...m, name: m.name.trim() }))
+      const b = await createBooking({
+        coordinator: { name: c.name.trim(), mobile: c.mobile, city: c.city.trim(), state: c.state, alt: c.alt, email: c.email.trim(), address: c.address.trim(), pincode: c.pincode, gotra: c.gotra.trim(), sankalp: c.sankalp.trim() },
+        members: final,
+        slots: picked.map((k) => { const [date, session] = k.split('|'); return { date, session } }).sort((a, b) => a.date.localeCompare(b.date) || a.session.localeCompare(b.session)),
+      }, keyRef.current)
+      nav(`/ticket/${encodeURIComponent(b.token)}?new=1`, { replace: true })
+    } catch (err) {
+      setBusy(false)
+      if (String(err.message).startsWith('FULL:')) {
+        keyRef.current = newKey()
         setBanner(t('Sorry, a selected session just became full. Please choose another.', 'क्षमा करें, चुना गया सत्र अभी भर गया। कृपया दूसरा चुनें।'))
         setPicked((p) => p.filter((k) => !String(err.message).includes(k)))
         setDir(-1); setStep(2)
+        return
       }
-    }, 700)
+      // Keep the same key after network/busy errors (safe retry); a fresh one after the server rejected the data.
+      if (!(err.code === 'NETWORK' || err.status === 503)) keyRef.current = newKey()
+      setBanner(describeError(err, t))
+    }
   }
 
   const slide = { enter: (d) => ({ x: d * 40, opacity: 0 }), center: { x: 0, opacity: 1 }, exit: (d) => ({ x: d * -40, opacity: 0 }) }
@@ -215,7 +225,7 @@ export default function Register() {
 
               {step === 2 && (
                 <div className="space-y-5">
-                  <Head h={t('Choose day & session', 'दिन व सत्र चुनें')} p={t(`Seats shown are for your ${n}-member family. Tap many to attend more days.`, `आपके ${n} सदस्यों के अनुसार उपलब्धता। अधिक दिनों के लिए अनेक चुनें।`)} />
+                  <Head h={t('Choose day & session', 'दिन व सत्र चुनें')} p={t(`Seats shown are for your ${n}-member family. You can book one session per day: morning or afternoon, not both. Pick several days to attend more days.`, `आपके ${n} सदस्यों के अनुसार उपलब्धता। प्रतिदिन केवल एक सत्र चुन सकते हैं: प्रातः या अपराह्न, दोनों नहीं। अधिक दिनों के लिए अनेक दिन चुनें।`)} />
                   <div className="flex flex-wrap gap-2">
                     <Chip onClick={() => bulk('morning')}><Sunrise size={15} /> {t('All mornings', 'सभी प्रातः')}</Chip>
                     <Chip onClick={() => bulk('afternoon')}><Sunset size={15} /> {t('All afternoons', 'सभी अपराह्न')}</Chip>
@@ -230,7 +240,7 @@ export default function Register() {
                         </div>
                         {Object.keys(EVENT.sessions).map((s) => {
                           const st = slotStats(d, s), k = `${d}|${s}`, can = fits[k], on = picked.includes(k)
-                          const pct = Math.round((st.used / st.capacity) * 100)
+                          const pct = st.capacity ? Math.min(100, Math.round((st.used / st.capacity) * 100)) : 100
                           return (
                             <button key={s} type="button" disabled={!can} onClick={() => toggleSlot(d, s)} className={`relative overflow-hidden rounded-2xl border-2 p-2.5 text-left transition active:scale-[.97] ${on ? 'border-saffron-500 bg-saffron-50 shadow-md' : can ? 'border-stone-200 bg-white hover:border-saffron-300' : 'border-stone-200 bg-stone-100 opacity-60'}`}>
                               <div className="flex items-center justify-between">
@@ -239,7 +249,7 @@ export default function Register() {
                               </div>
                               <div className="mt-0.5 text-[11px] text-stone-500">{fmtTime(EVENT.sessions[s].start)}</div>
                               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-200"><div className={`h-full ${pct > 85 ? 'bg-red-500' : pct > 60 ? 'bg-saffron-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} /></div>
-                              <div className={`mt-1 text-[11px] font-bold ${can ? 'text-stone-600' : 'text-red-600'}`}>{can ? t(`${st.left.toLocaleString('en-IN')} seats left`, `${st.left.toLocaleString('en-IN')} आसन शेष`) : t('Full', 'पूर्ण')}</div>
+                              <div className={`mt-1 text-[11px] font-bold ${can ? 'text-stone-600' : 'text-red-600'}`}>{st.loading ? t('Loading…', 'लोड हो रहा है…') : can ? t(`${st.left.toLocaleString('en-IN')} seats left`, `${st.left.toLocaleString('en-IN')} आसन शेष`) : !st.open && st.left > 0 ? t('Closed', 'बंद') : t('Full', 'पूर्ण')}</div>
                             </button>
                           )
                         })}

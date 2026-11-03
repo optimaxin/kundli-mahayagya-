@@ -4,3 +4,8 @@ dist
 .swarm
 *.log
 .DS_Store
+
+# local environment files
+.env
+.env.*
+!.env.example

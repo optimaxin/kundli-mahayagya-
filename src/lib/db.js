@@ -1,6 +1,6 @@
-// Mock backend (localStorage). Same function names/shapes the real API (Cloudflare Worker + D1) will expose,
-// so the UI never changes when the backend is wired in.
-// ponytail: client-side signature is NOT secure; real HMAC lives on the server.
+// API client for the Mahayagya backend (FastAPI, /api/v1). Replaces the former localStorage mock.
+// Exported names follow the old mock where possible; anything that talks to the server is async.
+import { useEffect, useState } from 'react'
 
 export const EVENT = {
   nameHi: '2151 कुंडीय महायज्ञ',
@@ -8,7 +8,7 @@ export const EVENT = {
   venueHi: 'जेसीबी तिराहा, शास्त्रीपुरम, आगरा',
   venueEn: 'JCB Tiraha, Shastripuram, Agra',
   dates: ['2026-12-14', '2026-12-15', '2026-12-16', '2026-12-17', '2026-12-18', '2026-12-19', '2026-12-20', '2026-12-21'],
-  // confirmed: 8-11 AM and 1-4 PM
+  // confirmed: 8-11 AM and 1-4 PM (the backend uses the same times)
   sessions: {
     morning: { start: '08:00', end: '11:00', hi: 'प्रातः सत्र', en: 'Morning' },
     afternoon: { start: '13:00', end: '16:00', hi: 'अपराह्न सत्र', en: 'Afternoon' },
@@ -27,166 +27,350 @@ const PER_ZONE = Math.ceil(EVENT.kunds / EVENT.zones)
 export const zoneOf = (k) => Math.min(EVENT.zones - 1, Math.floor((k - 1) / PER_ZONE))
 export const zoneRange = (z) => [z * PER_ZONE + 1, Math.min(EVENT.kunds, (z + 1) * PER_ZONE)]
 
-const KEY = 'km_db_v1'
-const DEFAULT_STAFF = { id: 's1', name: 'Volunteer 1', pin: '1234' }
-let db = load()
+// ------------------------------------------------------------------ HTTP
+export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '')
 
-function load() {
-  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && !d.staff) d.staff = [DEFAULT_STAFF]; return d || { bookings: [], occ: {}, blocked: {}, staff: [DEFAULT_STAFF] } }
-  catch { return { bookings: [], occ: {}, blocked: {}, staff: [DEFAULT_STAFF] } }
+export class ApiError extends Error {
+  constructor(status, code, message, details, retryAfter) {
+    super(message || code || 'Request failed')
+    this.status = status
+    this.code = code
+    this.details = details
+    this.retryAfter = retryAfter
+  }
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(db)) } catch {} }
-export function reload() { db = load(); return db }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function request(path, { method = 'GET', body, auth, headers = {}, retries = 0, raw = false } = {}) {
+  const h = { Accept: 'application/json', ...headers }
+  if (body !== undefined) h['Content-Type'] = 'application/json'
+  const session = auth ? currentAuth(auth) : null
+  if (auth && !session) throw new ApiError(401, 'UNAUTHORIZED', 'Please log in again')
+  if (session) h.Authorization = `Bearer ${session.token}`
+  for (let attempt = 0; ; attempt++) {
+    let res
+    try {
+      res = await fetch(API_BASE + path, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) })
+    } catch {
+      if (attempt < retries) { await sleep(800 * (attempt + 1)); continue }
+      throw new ApiError(0, 'NETWORK', 'Network error. Please check your connection and try again.')
+    }
+    const retryAfter = Number(res.headers.get('Retry-After')) || 0
+    if (res.status === 503 && attempt < retries) { await sleep(Math.min(8, retryAfter || 2) * 1000); continue }
+    if (raw && res.ok) return res
+    let json = null
+    try { json = await res.json() } catch { /* empty body */ }
+    if (!res.ok) {
+      const e = json?.error || {}
+      if (res.status === 401 && auth) { clearAuth(auth); window.dispatchEvent(new CustomEvent('km-auth-expired', { detail: auth })) }
+      throw new ApiError(res.status, e.code || `HTTP_${res.status}`, e.message || res.statusText, e.details, retryAfter)
+    }
+    return json
+  }
+}
+
+// Turns any error into a short user-facing sentence.
+export function describeError(err, t = (en) => en) {
+  if (!(err instanceof ApiError)) return t('Something went wrong. Please try again.', 'कुछ गड़बड़ हुई। कृपया पुनः प्रयास करें।')
+  if (err.code === 'NETWORK') return t('No connection to the server. Please try again.', 'सर्वर से संपर्क नहीं हो पाया। कृपया पुनः प्रयास करें।')
+  if (err.code === 'VALIDATION_ERROR' && Array.isArray(err.details) && err.details.length)
+    return err.details.map((d) => d.message).join('. ')
+  if (err.code === 'ONE_SESSION_PER_DAY') return t('You can book only one session per day: morning or afternoon, not both.', 'प्रतिदिन केवल एक सत्र चुन सकते हैं: प्रातः या अपराह्न, दोनों नहीं।')
+  if (err.code === 'DUPLICATE_BOOKING') return err.details?.dates
+    ? t('This mobile number already has a booking on one of the selected days. Only one session can be booked per day.', 'इस मोबाइल नंबर से चुने गए दिन में पहले से पंजीकरण है। प्रतिदिन केवल एक सत्र बुक हो सकता है।')
+    : t('This mobile number already has a booking for one of the selected sessions.', 'इस मोबाइल नंबर से चुने गए सत्र में पहले से पंजीकरण है।')
+  if (err.status === 429) return t('Too many attempts. Please wait a minute and try again.', 'बहुत अधिक प्रयास। एक मिनट बाद पुनः प्रयास करें।')
+  if (err.status === 503) return t('The system is busy. Please try again in a few seconds.', 'सिस्टम व्यस्त है। कुछ सेकंड बाद पुनः प्रयास करें।')
+  return err.message
+}
+
+export function newKey() {
+  if (globalThis.crypto?.randomUUID) return crypto.randomUUID()
+  const b = new Uint8Array(16)
+  crypto.getRandomValues(b)
+  return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
+}
+
+// ----------------------------------------------------------- sessions/slots
+const SLOT_API = { morning: 'MORNING', afternoon: 'AFTERNOON' }
+const slotUi = (s) => String(s).toLowerCase()
 const sk = (date, session) => `${date}|${session}`
 export const allSlots = () => EVENT.dates.flatMap((date) => Object.keys(EVENT.sessions).map((session) => ({ date, session })))
+export const slotId = (date, session) => slotCache[sk(date, session)]?.id ?? EVENT.dates.indexOf(date) * 2 + (session === 'morning' ? 1 : 2)
+export const slotOf = (id) => ({ date: EVENT.dates[Math.floor((id - 1) / 2)], session: id % 2 ? 'morning' : 'afternoon' })
 
-// ---- seat allocation: best fit (fill partly used kunds first, fewest leftover seats) ----
-export function pickKund(date, session, n) {
-  const k = sk(date, session)
-  const occ = db.occ[k] || {}
-  const bl = db.blocked[k] || {}
-  let best = 0, bestLeft = 99
-  for (const kd in occ) {
-    const left = EVENT.seats - occ[kd]
-    if (left >= n && left < bestLeft && !bl[kd]) { best = +kd; bestLeft = left; if (left === n) break }
+let slotCache = {}
+let slotVersion = 0
+const slotListeners = new Set()
+
+export async function loadSlots() {
+  const { data } = await request('/sessions', { retries: 1 })
+  const next = {}
+  for (const s of data) {
+    next[sk(s.event_date, slotUi(s.slot))] = {
+      id: s.id, used: s.reserved, capacity: s.total_capacity, left: s.remaining, full: s.kunds_full,
+      blocked: s.kunds_blocked || 0, empty: s.kunds_empty,
+      partial: Math.max(0, EVENT.kunds - s.kunds_empty - s.kunds_full - (s.kunds_blocked || 0)),
+      largest: s.largest_family_bookable, open: s.booking_open,
+    }
   }
-  if (best) return best
-  for (let i = 1; i <= EVENT.kunds; i++) if (!occ[i] && !bl[i]) return i
-  return 0
+  slotCache = next
+  slotVersion++
+  slotListeners.forEach((fn) => fn(slotVersion))
+  return slotCache
+}
+
+// React hook: keeps seat availability fresh. Returns a version number to use as a memo dependency.
+export function useSlots(intervalMs = 30000) {
+  const [v, setV] = useState(slotVersion)
+  useEffect(() => {
+    slotListeners.add(setV)
+    loadSlots().catch(() => {})
+    const i = setInterval(() => loadSlots().catch(() => {}), intervalMs)
+    return () => { slotListeners.delete(setV); clearInterval(i) }
+  }, [intervalMs])
+  return v
 }
 
 export function slotStats(date, session) {
-  const k = sk(date, session)
-  const occ = db.occ[k] || {}
-  const blocked = Object.keys(db.blocked[k] || {}).length
-  let used = 0, full = 0, partial = 0
-  for (const kd in occ) { used += occ[kd]; occ[kd] >= EVENT.seats ? full++ : partial++ }
-  const capacity = (EVENT.kunds - blocked) * EVENT.seats
-  return { used, capacity, left: capacity - used, full, partial, blocked, empty: EVENT.kunds - blocked - full - partial }
+  const c = slotCache[sk(date, session)]
+  if (c) return c
+  const capacity = EVENT.kunds * EVENT.seats
+  return { id: slotId(date, session), used: 0, capacity, left: capacity, full: 0, partial: 0, blocked: 0, empty: EVENT.kunds, largest: 0, open: false, loading: true }
 }
-export const canFit = (date, session, n) => pickKund(date, session, n) > 0
+export const canFit = (date, session, n) => { const c = slotCache[sk(date, session)]; return !!c && c.open && c.largest >= n }
 
-// ---- bookings ----
-const rid = () => 'KM' + Array.from({ length: 6 }, () => '23456789ABCDEFGHJKMNPQRSTUVWXYZ'[Math.floor(Math.random() * 31)]).join('')
-const sign = (id) => { let h = 2166136261; for (const c of id + 'km-secret') { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) } return (h >>> 0).toString(36) }
-export const qrPayload = (b) => `KM|${b.id}|${sign(b.id)}`
-
-export function createBooking({ coordinator, members, slots }) {
-  const n = members.length
-  const picks = slots.map((s) => ({ ...s, kund: pickKund(s.date, s.session, n) }))
-  const bad = picks.find((p) => !p.kund)
-  if (bad) throw new Error(`FULL:${bad.date}|${bad.session}`)
-  for (const p of picks) {
-    const k = sk(p.date, p.session)
-    db.occ[k] = db.occ[k] || {}
-    db.occ[k][p.kund] = (db.occ[k][p.kund] || 0) + n
-  }
-  const b = {
-    id: rid(), createdAt: Date.now(), coordinator, members,
-    slots: picks.map((p) => ({ date: p.date, session: p.session, kund: p.kund, attended: false, attendedAt: null })),
-  }
-  db.bookings.unshift(b)
-  save()
-  return b
-}
-export const getBooking = (id) => db.bookings.find((b) => b.id === id)
-export const allBookings = () => db.bookings
-export const findByMobile = (m) =>
-  db.bookings.filter((b) => b.coordinator.mobile === m || b.members.some((x) => x.mobile === m))
-
-// ---- scanning: ticket is valid only inside its slot window (+grace) ----
+// QR is valid only inside the session window (+-15 min), in India time.
 export const slotWindow = (date, session) => {
   const s = EVENT.sessions[session]
   const g = EVENT.graceMin * 60000
-  return [new Date(`${date}T${s.start}:00`).getTime() - g, new Date(`${date}T${s.end}:00`).getTime() + g]
+  return [new Date(`${date}T${s.start}:00+05:30`).getTime() - g, new Date(`${date}T${s.end}:00+05:30`).getTime() + g]
 }
-export function checkIn(payload, now = Date.now(), by = '') {
-  const [tag, id, sig] = String(payload).trim().split('|')
-  const b = tag === 'KM' ? getBooking(id) : getBooking(String(payload).trim().toUpperCase())
-  if (!b || (tag === 'KM' && sig !== sign(id))) return { ok: false, code: 'INVALID' }
-  const live = b.slots.find((s) => { const [a, z] = slotWindow(s.date, s.session); return now >= a && now <= z })
-  if (!live) {
-    const next = b.slots.map((s) => ({ ...s, w: slotWindow(s.date, s.session) })).filter((s) => s.w[0] > now).sort((x, y) => x.w[0] - y.w[0])[0]
-    return { ok: false, code: next ? 'EARLY' : 'EXPIRED', booking: b, next }
+
+// ------------------------------------------------------- passes on device
+// Pass tokens are credentials: they are kept only on the family's own device (and inside the QR).
+const PASS_KEY = 'km_passes_v2'
+export function savedPasses() { try { return JSON.parse(localStorage.getItem(PASS_KEY)) || [] } catch { return [] } }
+function rememberPass(b, mobile) {
+  try {
+    const list = savedPasses().filter((p) => p.token !== b.token)
+    const prev = savedPasses().find((p) => p.token === b.token)
+    list.unshift({ token: b.token, id: b.id, name: b.coordinator.name, mobile: mobile || prev?.mobile || '', mobileMasked: b.coordinator.mobileMasked, members: b.members.length, dates: b.slots.map((s) => s.date) })
+    localStorage.setItem(PASS_KEY, JSON.stringify(list.slice(0, 20)))
+  } catch { /* storage full or blocked */ }
+}
+
+function mapPass(d, token) {
+  return {
+    id: d.booking_number,
+    token,
+    qr: d.qr_payload,
+    status: d.booking_status,
+    createdAt: Date.parse(d.created_at),
+    coordinator: { name: d.coordinator_name, mobileMasked: d.primary_mobile_masked, city: d.city },
+    members: d.members.map((m) => ({ name: m.full_name, ...m })),
+    slots: d.reservations.map((r) => ({
+      date: r.event_date, session: slotUi(r.slot), kund: r.kund_number, status: r.status,
+      checkedIn: r.checked_in_count, attended: r.checked_in_count > 0,
+      attendedAt: r.first_checked_in_at ? Date.parse(r.first_checked_in_at) : null,
+    })),
   }
-  if (live.attended) return { ok: false, code: 'DUP', booking: b, slot: live }
-  live.attended = true
-  live.attendedAt = now
-  live.by = by
-  save()
-  return { ok: true, booking: b, slot: live }
 }
-export function toggleAttended(id, date, session) {
-  const s = getBooking(id)?.slots.find((x) => x.date === date && x.session === session)
-  if (!s) return
-  s.attended = !s.attended
-  s.attendedAt = s.attended ? Date.now() : null
-  save()
-}
+export const qrPayload = (b) => b.qr
 
-// ---- admin ----
-export function toggleBlock(date, session, kund) {
-  const k = sk(date, session)
-  if ((db.occ[k] || {})[kund]) return false
-  db.blocked[k] = db.blocked[k] || {}
-  db.blocked[k][kund] ? delete db.blocked[k][kund] : (db.blocked[k][kund] = 1)
-  save()
-  return true
-}
-export const kundMap = (date, session) => ({ occ: db.occ[sk(date, session)] || {}, blocked: db.blocked[sk(date, session)] || {} })
-export const kundFamilies = (date, session, kund) =>
-  db.bookings.filter((b) => b.slots.some((s) => s.date === date && s.session === session && s.kund === kund))
-
-export function overview() {
-  const days = EVENT.dates.map((date) => {
-    const row = { date }
-    for (const session of Object.keys(EVENT.sessions)) {
-      const st = slotStats(date, session)
-      let att = 0
-      for (const b of db.bookings) for (const s of b.slots) if (s.date === date && s.session === session && s.attended) att += b.members.length
-      row[session] = { ...st, attended: att }
+// ------------------------------------------------------------ registration
+// Throws Error('FULL:<date>|<session>,...') when sessions cannot fit the family (same contract as the mock).
+export async function createBooking({ coordinator: c, members, slots }, idempotencyKey = newKey()) {
+  const body = {
+    coordinator: {
+      name: c.name, primary_mobile: c.mobile, secondary_mobile: c.alt || '', email: c.email || '',
+      address: c.address || '', city: c.city, state: c.state, pincode: c.pincode || '',
+      gotra: c.gotra || '', sankalp_purpose: c.sankalp || '',
+    },
+    members: members.map((m, i) => ({
+      full_name: m.name, age: Number(m.age), gender: m.gender,
+      relationship: m.relationship || (i === 0 ? 'Self' : null), mobile: m.mobile || null,
+    })),
+    selected_sessions: slots.map((s) => slotId(s.date, s.session)),
+  }
+  try {
+    const { data } = await request('/registrations', { method: 'POST', body, headers: { 'Idempotency-Key': idempotencyKey }, retries: 2 })
+    const b = {
+      id: data.booking_number, token: data.qr_pass.token, qr: data.qr_pass.qr_payload, status: data.status,
+      createdAt: Date.parse(data.created_at),
+      coordinator: { name: data.coordinator_name, mobileMasked: data.primary_mobile_masked, city: c.city },
+      members: data.members.map((m) => ({ name: m.full_name, ...m })),
+      slots: data.reservations.map((r) => ({ date: r.event_date, session: slotUi(r.slot), kund: r.kund_number, status: r.status, checkedIn: 0, attended: false, attendedAt: null })),
     }
-    return row
-  })
-  const people = db.bookings.reduce((a, b) => a + b.members.length, 0)
-  const entered = days.reduce((a, d) => a + d.morning.attended + d.afternoon.attended, 0)
-  const seatsTotal = EVENT.dates.length * 2 * EVENT.kunds * EVENT.seats
-  const seatsUsed = days.reduce((a, d) => a + d.morning.used + d.afternoon.used, 0)
-  return { days, families: db.bookings.length, people, entered, seatsTotal, seatsUsed }
-}
-
-// ---- demo data ----
-const FIRST = ['Ramesh', 'Sunita', 'Mahesh', 'Geeta', 'Suresh', 'Kavita', 'Anil', 'Meena', 'Rajesh', 'Pooja', 'Vikas', 'Anita', 'Deepak', 'Rekha', 'Manoj', 'Sarita']
-const LAST = ['Sharma', 'Verma', 'Gupta', 'Agarwal', 'Yadav', 'Singh', 'Mishra', 'Jain', 'Chauhan', 'Pandey']
-const REL = ['Spouse', 'Parent', 'Child', 'Sibling', 'Relative']
-const pick = (a) => a[Math.floor(Math.random() * a.length)]
-export function seedDemo(count = 500) {
-  const slots = allSlots()
-  for (let i = 0; i < count; i++) {
-    const size = Math.min(8, 1 + Math.floor(Math.random() ** 1.6 * 8))
-    const mob = () => '9' + String(Math.floor(Math.random() * 1e9)).padStart(9, '0')
-    const nm = () => `${pick(FIRST)} ${pick(LAST)}`
-    const members = Array.from({ length: size }, (_, j) => ({
-      name: j ? nm() : '', age: String(8 + Math.floor(Math.random() * 70)), gender: pick(['male', 'female']),
-      relationship: j ? pick(REL) : 'Self', mobile: '', self: !j,
-    }))
-    const coordinator = { name: nm(), mobile: mob(), city: pick(['Agra', 'Mathura', 'Firozabad', 'Aligarh', 'Gwalior']), state: 'Uttar Pradesh' }
-    members[0].name = coordinator.name
-    const chosen = [pick(slots)]
-    if (Math.random() < 0.25) chosen.push(pick(slots))
-    const uniq = [...new Map(chosen.map((s) => [sk(s.date, s.session), s])).values()]
-    try {
-      const b = createBooking({ coordinator, members, slots: uniq })
-      b.createdAt = Date.now() - Math.floor(Math.random() ** 1.5 * 13 * 864e5)
-      for (const sl of b.slots) if (Math.random() < .3) { sl.attended = true; sl.attendedAt = Date.now() - Math.floor(Math.random() * 36e5 * 5); sl.by = pick(['Volunteer 1', 'Ramesh (Gate A)', 'Sunita (Gate B)']) }
-    } catch {}
+    if (b.token) rememberPass(b, c.mobile)
+    loadSlots().catch(() => {})
+    return b
+  } catch (err) {
+    if (err instanceof ApiError && err.code === 'CAPACITY_UNAVAILABLE') {
+      const ids = err.details?.unavailable_sessions || []
+      const full = (err.details?.availability || []).filter((a) => !a.fits_this_family).map((a) => a.session_id)
+      const keys = [...new Set([...ids, ...full])].map((id) => { const s = slotOf(id); return sk(s.date, s.session) })
+      loadSlots().catch(() => {})
+      const e = new Error(`FULL:${keys.join(',')}`)
+      e.api = err
+      throw e
+    }
+    throw err
   }
-  save()
 }
-export function resetAll() { db = { bookings: [], occ: {}, blocked: {}, staff: db.staff }; save() }
 
-// ---- helpers shared by UI ----
+// Ticket page: the route id is the pass token.
+export async function getBooking(token) {
+  try {
+    const { data } = await request('/qr/pass', { method: 'POST', body: { token } })
+    const b = mapPass(data, token)
+    rememberPass(b)
+    return b
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 422)) return null
+    throw err
+  }
+}
+
+// "Find my pass": passes saved on THIS device for the mobile number (the server never lists bookings by mobile).
+export async function findByMobile(m) {
+  return savedPasses().filter((p) => p.mobile === m || (p.mobileMasked && p.mobileMasked.slice(0, 2) === m.slice(0, 2) && p.mobileMasked.slice(-2) === m.slice(-2) && !p.mobile))
+    .map((p) => ({ id: p.id, token: p.token, coordinator: { name: p.name }, members: { length: p.members }, slots: p.dates.map((date) => ({ date })) }))
+}
+export async function passStatus(bookingNumber, mobile) {
+  const { data } = await request('/qr/status', { method: 'POST', body: { booking_number: bookingNumber, primary_mobile: mobile } })
+  return data
+}
+
+// ------------------------------------------------------------- staff auth
+// kind: 'admin' (ADMIN/SUPERVISOR console) or 'staff' (gate volunteer = SCANNER account)
+const AUTH_KEYS = { admin: 'km_admin_auth', staff: 'km_staff_auth' }
+export function currentAuth(kind) {
+  try {
+    const a = JSON.parse(sessionStorage.getItem(AUTH_KEYS[kind]))
+    return a && a.expiresAt > Date.now() ? a : null
+  } catch { return null }
+}
+function clearAuth(kind) { try { sessionStorage.removeItem(AUTH_KEYS[kind]) } catch { /* ignore */ } }
+
+export async function login(kind, email, password) {
+  const { data } = await request('/auth/login', { method: 'POST', body: { email: email.trim(), password } })
+  const allowed = kind === 'admin' ? ['ADMIN', 'SUPERVISOR'] : ['SCANNER']
+  if (!allowed.includes(data.role)) throw new ApiError(403, 'WRONG_ROLE', kind === 'admin' ? 'This account is a gate scanner account. Use /staff.' : 'This is not a gate scanner account.')
+  const a = { token: data.access_token, role: data.role, expiresAt: Date.parse(data.expires_at) }
+  sessionStorage.setItem(AUTH_KEYS[kind], JSON.stringify(a))
+  try {
+    const me = await request('/auth/me', { auth: kind })
+    a.user = { id: me.data.id, name: me.data.full_name, email: me.data.email, sessionId: me.data.assigned_session_id }
+    sessionStorage.setItem(AUTH_KEYS[kind], JSON.stringify(a))
+  } catch { /* profile is optional */ }
+  return a
+}
+export async function logout(kind) {
+  try { await request('/auth/logout', { method: 'POST', auth: kind }) } catch { /* token may already be invalid */ }
+  clearAuth(kind)
+}
+export const staffLogin = (email, password) => login('staff', email, password)
+
+// --------------------------------------------------------------- scanner
+const passRef = (code) => {
+  const c = String(code).trim()
+  return /^MY26-[0-9A-Z]{8}$/i.test(c) ? { booking_number: c.toUpperCase() } : { qr_payload: c }
+}
+export async function scanPass(kind, code, sessionId) {
+  const body = { ...passRef(code), ...(kind === 'admin' ? { session_id: sessionId } : {}) }
+  return (await request('/scanner/scan', { method: 'POST', body, auth: kind })).data
+}
+export async function checkInMember(kind, code, memberNumber, sessionId, eventId = newKey()) {
+  const body = { ...passRef(code), member_number: memberNumber, event_id: eventId, ...(kind === 'admin' ? { session_id: sessionId } : {}) }
+  return (await request('/scanner/checkin', { method: 'POST', body, auth: kind, retries: 1 })).data
+}
+export async function recentScans(kind, n = 8) {
+  return (await request(`/scanner/recent?limit=${n}`, { auth: kind })).data
+}
+export async function scannerMe(kind) { return (await request('/scanner/me', { auth: kind })).data }
+
+// ------------------------------------------------------------------ admin
+export async function analytics() { return (await request('/admin/analytics', { auth: 'admin' })).data }
+
+function mapListBooking(b) {
+  return {
+    id: b.booking_number, status: b.status, createdAt: Date.parse(b.created_at),
+    coordinator: { name: b.coordinator_name, mobile: b.primary_mobile, city: b.city, state: b.state },
+    members: b.members.map((m) => ({ name: m.full_name, ...m })),
+    slots: b.reservations.map((r) => ({
+      date: r.event_date, session: slotUi(r.slot), sessionId: r.session_id, kund: r.kund_number, status: r.status,
+      checkedIn: r.checked_in_count, attended: r.checked_in_count > 0,
+      attendedAt: r.first_checked_in_at ? Date.parse(r.first_checked_in_at) : null, by: r.checked_in_by || '',
+    })),
+  }
+}
+export async function searchBookings({ q = '', date = '', session = '', page = 1, pageSize = 100 } = {}) {
+  const p = new URLSearchParams({ page: String(page), page_size: String(pageSize), expand: 'true' })
+  if (q.trim()) p.set('q', q.trim())
+  if (date) p.set('event_date', date)
+  if (session) p.set('slot', SLOT_API[session])
+  const res = await request(`/bookings?${p}`, { auth: 'admin' })
+  return { rows: res.data.map(mapListBooking), total: res.meta.total }
+}
+// All matching bookings for CSV export (paged; capped -- use the Excel report for everything).
+export async function exportBookings(filters, onProgress, cap = 20000) {
+  const out = []
+  for (let page = 1; out.length < cap; page++) {
+    const { rows, total } = await searchBookings({ ...filters, page, pageSize: 200 })
+    out.push(...rows)
+    onProgress?.(out.length, total)
+    if (!rows.length || out.length >= total) break
+  }
+  return out
+}
+// Mark every not-yet-entered member of a reservation as entered (organiser action, audited, cannot be undone).
+export async function markEntered(bookingId, date, session, memberNumbers) {
+  return (await request(`/bookings/${encodeURIComponent(bookingId)}/checkin`, { method: 'POST', auth: 'admin', body: { session_id: slotId(date, session), member_numbers: memberNumbers || null } })).data
+}
+
+export async function kundMap(date, session) {
+  const { data } = await request(`/sessions/${slotId(date, session)}/kund-map`, { auth: 'admin' })
+  return { occ: data.occ, blocked: Object.fromEntries(data.blocked.map((k) => [k, 1])), inactive: Object.fromEntries(data.inactive.map((k) => [k, 1])) }
+}
+export async function kundFamilies(date, session, kund) {
+  const { data } = await request(`/sessions/${slotId(date, session)}/kunds?kund_number=${kund}`, { auth: 'admin' })
+  return (data[0]?.families || []).map((f) => ({ id: f.booking_number, name: f.coordinator_name, size: f.member_count }))
+}
+export async function toggleBlock(date, session, kund, blocked) {
+  const r = await request(`/sessions/${slotId(date, session)}/kunds/${kund}/block`, { method: 'POST', auth: 'admin', body: { blocked } })
+  loadSlots().catch(() => {})
+  return r.data
+}
+
+// Volunteers = SCANNER accounts (ADMIN only).
+export async function staffList() {
+  const { data } = await request('/admin/users?role=SCANNER&page_size=200', { auth: 'admin' })
+  return data.map((u) => ({ id: u.id, name: u.full_name, email: u.email, sessionId: u.assigned_session_id, active: u.is_active, lastLogin: u.last_login_at }))
+}
+export async function addStaff({ name, email, password, sessionId }) {
+  return (await request('/admin/users', { method: 'POST', auth: 'admin', body: { full_name: name, email, password, role: 'SCANNER', assigned_session_id: sessionId || null } })).data
+}
+export async function updateStaff(id, patch) {
+  return (await request(`/admin/users/${id}`, { method: 'PATCH', auth: 'admin', body: patch })).data
+}
+export const removeStaff = (id) => updateStaff(id, { is_active: false })
+
+// Excel reports (generated asynchronously on the server).
+export async function requestReport(type, date) {
+  return (await request('/reports/exports', { method: 'POST', auth: 'admin', body: { report_type: type, report_date: date || null } })).data
+}
+export async function reportStatus(id) { return (await request(`/reports/exports/${id}`, { auth: 'admin' })).data }
+export async function downloadReport(id, fileName) {
+  const res = await request(`/reports/exports/${id}/download`, { auth: 'admin', raw: true })
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url; a.download = fileName || 'mahayagya-report.xlsx'; a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 5000)
+}
+
+// ------------------------------------------------------------ UI helpers
 export const fmtDate = (d, lang = 'en', opts = { weekday: 'short', day: 'numeric', month: 'short' }) =>
   new Date(d + 'T12:00:00').toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', opts)
 export const fmtTime = (hhmm) => {
@@ -194,42 +378,17 @@ export const fmtTime = (hhmm) => {
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
 }
 
-// ---- volunteers / staff ----
-export const staffList = () => db.staff
-export function staffLogin(pin) { return db.staff.find((x) => x.pin === String(pin).trim()) || null }
-export function addStaff(name, pin) { db.staff.push({ id: 's' + Date.now(), name, pin }); save() }
-export function removeStaff(id) { db.staff = db.staff.filter((x) => x.id !== id); save() }
-export const recentScans = (by, n = 8) =>
-  db.bookings.flatMap((b) => b.slots.filter((s) => s.attended && (!by || s.by === by)).map((s) => ({ b, s })))
-    .sort((x, y) => y.s.attendedAt - x.s.attendedAt).slice(0, n)
-
-// ---- analytics for the dashboard ----
-export function analytics() {
-  const ov = overview()
-  const ages = { '0-12': 0, '13-30': 0, '31-50': 0, '51-70': 0, '70+': 0 }
-  const gender = { male: 0, female: 0, other: 0 }
-  const sizes = Array(9).fill(0)
-  const cities = {}
-  const perDay = {}
-  const staff = {}
-  const rel = {}
-  for (const b of db.bookings) {
-    sizes[b.members.length]++
-    cities[b.coordinator.city] = (cities[b.coordinator.city] || 0) + b.members.length
-    const d = new Date(b.createdAt).toISOString().slice(0, 10)
-    perDay[d] = (perDay[d] || 0) + 1
-    for (const m of b.members) {
-      const a = +m.age
-      ages[a <= 12 ? '0-12' : a <= 30 ? '13-30' : a <= 50 ? '31-50' : a <= 70 ? '51-70' : '70+']++
-      gender[m.gender] = (gender[m.gender] || 0) + 1
-      rel[m.relationship] = (rel[m.relationship] || 0) + 1
-    }
-    for (const s of b.slots) if (s.attended) staff[s.by || 'Manual'] = (staff[s.by || 'Manual'] || 0) + b.members.length
-  }
-  const trend = Array.from({ length: 14 }, (_, i) => {
-    const dt = new Date(Date.now() - (13 - i) * 864e5), k = dt.toISOString().slice(0, 10)
-    return { date: k, n: perDay[k] || 0 }
-  })
-  const top = (o, n = 6) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n)
-  return { ...ov, ages, gender, sizes, cities: top(cities), trend, staff: top(staff, 10), rel: top(rel), avgFamily: ov.families ? ov.people / ov.families : 0 }
+// Poll an async loader; returns [data, reload, error]. Re-runs when deps change.
+export function usePoll(fn, ms, deps = []) {
+  const [state, setState] = useState({ data: null, error: null })
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const run = () => fn().then((data) => alive && setState({ data, error: null })).catch((error) => alive && setState((s) => ({ data: s.data, error })))
+    run()
+    const i = ms ? setInterval(run, ms) : null
+    return () => { alive = false; if (i) clearInterval(i) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...deps, n, ms])
+  return [state.data, () => setN((x) => x + 1), state.error]
 }

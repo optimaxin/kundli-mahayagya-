@@ -6,18 +6,25 @@ import { CheckCircle2, Download, Flame, Clock, MapPin, Search, Sunrise, Sunset, 
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Mandala, Om } from '../components/ui.jsx'
 import Fireworks from '../components/Fireworks.jsx'
-import { EVENT, getBooking, qrPayload, slotWindow, fmtDate, fmtTime } from '../lib/db.js'
+import { EVENT, describeError, getBooking, qrPayload, slotWindow, fmtDate, fmtTime } from '../lib/db.js'
 
 export default function Ticket() {
-  const { id } = useParams()
+  const { id } = useParams() // the pass token (kept in the URL hash, never sent to the server in a URL)
   const [sp] = useSearchParams()
   const { t, lang } = useLang()
-  const b = getBooking(id)
+  const [b, setB] = useState(undefined) // undefined = loading, null = not found
+  const [loadErr, setLoadErr] = useState('')
+  useEffect(() => {
+    let alive = true
+    setB(undefined); setLoadErr('')
+    getBooking(id).then((x) => alive && setB(x)).catch((e) => { if (alive) { setB(null); setLoadErr(describeError(e, t)) } })
+    return () => { alive = false }
+  }, [id])
   const [qr, setQr] = useState('')
   const [busy, setBusy] = useState(false)
   const ref = useRef(null)
   const [gift, setGift] = useState(false)
-  useEffect(() => { if (!b || !sp.get('new')) return; const x = setTimeout(() => setGift(true), 4500); return () => clearTimeout(x) }, [id])
+  useEffect(() => { if (!b || !sp.get('new')) return; const x = setTimeout(() => setGift(true), 4500); return () => clearTimeout(x) }, [b?.id])
 
   const pdfRef = useRef(null)
   const auto = useRef(false)
@@ -27,13 +34,19 @@ export default function Ticket() {
     auto.current = true
     setTimeout(async () => { await document.fonts?.ready; pdfRef.current?.() }, 900)
   }, [qr])
-  useEffect(() => { if (b) QRCode.toDataURL(qrPayload(b), { width: 560, margin: 1, color: { dark: '#430d19', light: '#ffffff' }, errorCorrectionLevel: 'M' }).then(setQr) }, [id])
+  useEffect(() => { if (b) QRCode.toDataURL(qrPayload(b), { width: 560, margin: 1, color: { dark: '#430d19', light: '#ffffff' }, errorCorrectionLevel: 'M' }).then(setQr) }, [b?.qr])
 
+  if (b === undefined) return (
+    <div className="mx-auto max-w-md px-4 py-24 text-center text-maroon-800">
+      <Flame className="mx-auto flicker text-saffron-500" size={48} />
+      <p className="mt-3 font-semibold">{t('Loading your pass…', 'प्रवेश पत्र लोड हो रहा है…')}</p>
+    </div>
+  )
   if (!b) return (
     <div className="mx-auto max-w-md px-4 py-24 text-center">
       <Search className="mx-auto text-maroon-200" size={56} />
       <h1 className="font-display mt-4 text-3xl text-maroon-900">{t('Pass not found', 'प्रवेश पत्र नहीं मिला')}</h1>
-      <p className="mt-2 text-stone-600">{t('It is saved on the device it was created on. Try searching with your mobile number.', 'यह उसी डिवाइस पर सहेजा है जहाँ बना था। मोबाइल नंबर से खोजें।')}</p>
+      <p className="mt-2 text-stone-600">{loadErr || t('This pass link is not valid, or the pass was re-issued by the help desk. Look for passes saved on this device, or bring your booking number and photo ID to the help desk.', 'यह लिंक मान्य नहीं है, या हेल्प डेस्क ने नया प्रवेश पत्र जारी किया है। इस डिवाइस पर सहेजे प्रवेश पत्र देखें, या बुकिंग नंबर व फोटो पहचान पत्र के साथ हेल्प डेस्क पर आएँ।')}</p>
       <Btn as={Link} to="/find" className="mt-6">{t('Find my pass', 'प्रवेश पत्र खोजें')}</Btn>
     </div>
   )
@@ -41,7 +54,8 @@ export default function Ticket() {
   const now = Date.now()
   const status = (s) => {
     const [a, z] = slotWindow(s.date, s.session)
-    if (s.attended) return ['done', t('Entered ✔', 'प्रवेश हो चुका ✔'), 'bg-emerald-100 text-emerald-700']
+    if (s.status === 'CANCELLED') return ['cancelled', t('Cancelled', 'रद्द'), 'bg-red-100 text-red-700']
+    if (s.attended) return ['done', `${t('Entered', 'प्रवेश')} ${s.checkedIn}/${b.members.length} ✔`, 'bg-emerald-100 text-emerald-700']
     if (now > z) return ['past', t('Expired', 'समाप्त'), 'bg-stone-200 text-stone-600']
     if (now >= a) return ['live', t('Valid now', 'अभी मान्य'), 'bg-emerald-500 text-white animate-pulse']
     return ['soon', t('Opens at session time', 'सत्र समय पर मान्य'), 'bg-saffron-100 text-saffron-600']
@@ -69,7 +83,7 @@ export default function Ticket() {
           <motion.div initial={{ scale: .8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="mb-6 text-center">
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: .15 }} className="mx-auto grid size-16 place-items-center rounded-full bg-emerald-500 text-white shadow-xl"><CheckCircle2 size={36} /></motion.div>
             <h1 className="font-display mt-3 text-3xl text-maroon-900">{t('Registration confirmed!', 'पंजीकरण सफल!')}</h1>
-            <p className="mt-1 text-sm text-stone-600">{t('Download your pass now, or find it later using your mobile number.', 'अभी डाउनलोड करें, या बाद में मोबाइल नंबर से खोजें।')}</p>
+            <p className="mt-1 text-sm text-stone-600">{t('Download your pass now. It is also saved on this device (Find pass → your mobile number).', 'अभी डाउनलोड करें। यह इस डिवाइस पर भी सहेजा है (प्रवेश पत्र खोजें → मोबाइल नंबर)।')}</p>
           </motion.div>
         )}
 

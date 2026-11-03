@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import QRCode from 'qrcode'
 import { CheckCircle2, Download, Flame, Clock, MapPin, Search, Sunrise, Sunset, Users, Printer, Share2, Gift, Sparkles, X } from 'lucide-react'
 import { useLang } from '../lib/lang.jsx'
-import { Btn, AdSlot, Mandala, Om } from '../components/ui.jsx'
+import { Btn, Mandala, Om } from '../components/ui.jsx'
 import { EVENT, getBooking, qrPayload, slotWindow, fmtDate, fmtTime } from '../lib/db.js'
 
 export default function Ticket() {
@@ -125,7 +125,6 @@ export default function Ticket() {
         </div>
 
         <GiftBanner className="mt-6" />
-        <AdSlot className="mt-8" />
       </div>
       <AnimatePresence>{gift && <GiftPopup onClose={() => setGift(false)} />}</AnimatePresence>
     </div>

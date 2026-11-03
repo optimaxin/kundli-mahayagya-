@@ -72,9 +72,9 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <div className="flex rounded-full border border-maroon-200 bg-white p-0.5 text-xs font-bold" role="group" aria-label="Language">
-            {[['hi', 'हिं'], ['en', 'EN']].map(([k, l]) => (
-              <button key={k} onClick={() => setLang(k)} aria-pressed={lang === k} className={`rounded-full px-2.5 py-1.5 transition ${lang === k ? 'bg-maroon-800 text-gold-300' : 'text-maroon-700'}`}>{l}</button>
+          <div className="flex rounded-full border-2 border-maroon-800 bg-white p-0.5 text-sm font-bold shadow-sm" role="group" aria-label="Language">
+            {[['hi', 'हिन्दी'], ['en', 'English']].map(([k, l]) => (
+              <button key={k} onClick={() => setLang(k)} aria-pressed={lang === k} className={`rounded-full px-3 py-2 transition sm:px-4 ${lang === k ? 'bg-maroon-800 text-gold-300 shadow' : 'text-maroon-800 hover:bg-maroon-50'}`}>{l}</button>
             ))}
           </div>
           <Link to="/register" className="hidden rounded-full bg-gradient-to-b from-saffron-500 to-saffron-600 px-5 py-2.5 text-sm font-bold text-white shadow-[0_6px_16px_-6px_rgba(217,95,12,.7)] transition hover:brightness-110 active:scale-95 sm:inline-flex">{t('Register now', 'पंजीकरण करें')}</Link>
@@ -142,13 +142,3 @@ export const inputCls = (err) =>
   `w-full min-h-12 rounded-xl border bg-white px-3.5 text-[15px] outline-none transition placeholder:text-stone-400 focus:ring-4 ${
     err ? 'border-red-400 focus:ring-red-100' : 'border-stone-300 focus:border-saffron-500 focus:ring-saffron-100'
   }`
-
-// Ads only live on the ticket page (never next to forms / personal data). Reserved size = no layout shift.
-export function AdSlot({ className = '' }) {
-  const { t } = useLang()
-  return (
-    <div className={`grid place-items-center rounded-2xl border border-dashed border-gold-400 bg-gold-300/10 text-xs font-semibold text-gold-500 min-h-[100px] ${className}`}>
-      {t('Sponsor banner (320×100)', 'प्रायोजक बैनर (320×100)')}
-    </div>
-  )
-}

@@ -35,7 +35,7 @@ Implemented in `pickKund()` in `src/lib/db.js`. On the real backend this must be
 ## 3. User flows
 
 **Devotee** (`/#/register`, 4 steps): You (name, mobile, city/state; address, gotra, sankalp optional) → Family (name, age, gender, relation per member; kund graphic fills) → Day & session (live seats-left, multi-select) → Confirm (vegetarian + consent ticks) → Ticket page.
-**Ticket** (`/#/ticket/:id`): QR + per-session kund & status, **Download PDF / Print / Share at the top**, free-Kundali gift popup after registration + banner (https://tredevaastro.com/), sponsor ad slot at the bottom (ads only here, never beside forms).
+**Ticket** (`/#/ticket/:id`): QR + per-session kund & status, **Download PDF / Print / Share at the top**, free-Kundali gift popup after registration + banner (https://tredevaastro.com/), pass **auto-downloads** once after registration; popup has a fireworks animation.
 **Find pass** (`/#/find`): by mobile number.
 **Volunteer** (`/#/staff`): PIN login → scan camera or type Pass ID → green/amber/red result. Nothing else visible.
 **Admin** (`/#/admin`): Dashboard, Bookings (search/filter/CSV/manual entry toggle), Scanner, Kund map (block empty kunds), Volunteers (add/remove PINs), Settings (demo data).
@@ -88,7 +88,7 @@ Demo logins: admin `admin123`, volunteer PIN `1234` (**placeholders**). Admin �
 - Turnstile + rate limits against bots; one booking per mobile per session is recommended.
 - “Find my pass” by mobile alone leaks data without OTP: recover via mobile **+ name** (or pass ID).
 - DPDP-style consent checkbox is already in the form. Collect only needed fields.
-- Ads / sponsor scripts only on the ticket page, never on pages that show forms or personal data.
+- No ad/sponsor scripts on pages that show forms or personal data (the sponsor placeholder was removed from the ticket page; the Kundali gift popup is a plain link).
 
 ## 8. Assumptions to confirm with the client
 

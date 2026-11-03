@@ -50,12 +50,12 @@ export default function Ticket() {
   const pdf = async () => {
     setBusy(true)
     try {
-      const [{ toPng }, { jsPDF }] = await Promise.all([import('html-to-image'), import('jspdf')])
-      const url = await toPng(ref.current, { pixelRatio: 2.5, backgroundColor: '#fff9ee', cacheBust: true })
+      const [{ toJpeg }, { jsPDF }] = await Promise.all([import('html-to-image'), import('jspdf')])
+      const url = await toJpeg(ref.current, { pixelRatio: 2, quality: 0.9, backgroundColor: '#fff9ee', cacheBust: true })
       const el = ref.current
       const w = 190, h = (el.offsetHeight / el.offsetWidth) * w
       const doc = new jsPDF({ unit: 'mm', format: [210, Math.max(297, h + 20)] })
-      doc.addImage(url, 'PNG', 10, 10, w, h)
+      doc.addImage(url, 'JPEG', 10, 10, w, h, undefined, 'FAST')
       doc.save(`Kundiya-Mahayagya-${b.id}.pdf`)
     } finally { setBusy(false) }
   }

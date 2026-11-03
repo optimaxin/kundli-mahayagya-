@@ -56,7 +56,7 @@ CREATE INDEX ON bookings(c_mobile); CREATE INDEX ON kund_slots(slot_id, used);
 ## Phase 3: Hardening — SHOULD
 - **Offline gate scanning:** volunteer app downloads that session’s valid signed IDs (cached via service worker), checks locally, queues check-ins and syncs when online. Known gap: two offline phones can’t see each other’s scans (document it).
 - **PWA** install for volunteers (manifest + service worker).
-- Image: convert `public/person.png` (≈830 KB) to **WebP/AVIF**; add `srcset`.
+- Image: convert `public/banner.jpg` (≈330 KB) to **WebP/AVIF**; add `srcset`.
 - Code-split big chunks (`jspdf`, `html5-qrcode` are already lazy; check bundle ≈ 890 KB main).
 - Accessibility pass (focus rings, contrast on gold-on-maroon, `aria-live` on scan result).
 - Error/empty/offline states on every API call; retry + idempotency key on `POST /api/bookings` (avoid double-submit on bad networks).

@@ -25,35 +25,25 @@ export default function Home() {
   ]
   return (
     <div className="paper">
-      {/* HERO: fits one screen. Photo left (below text on phones), details + register right */}
+      {/* HERO: event banner, then register + key details, all inside the first screen */}
       <section className="relative overflow-hidden bg-gradient-to-b from-maroon-950 via-maroon-900 to-maroon-800 text-white">
-        <Mandala className="spin-slow absolute -right-40 -top-40 w-[640px] opacity-20" />
-        <Mandala className="spin-slower absolute -bottom-56 -left-48 w-[620px] opacity-15" rings={3} />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_0%,rgba(244,123,32,.35),transparent_60%)]" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-2 px-4 pt-6 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[.85fr_1.15fr] lg:gap-8 lg:pt-4">
-          {/* photo */}
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8 }} className="relative order-2 mx-auto flex h-[300px] w-full max-w-[340px] items-end justify-center self-end sm:h-[380px] lg:order-1 lg:h-[calc(100svh-5rem)] lg:max-h-[640px] lg:max-w-none">
-            <div className="absolute bottom-0 left-1/2 aspect-square w-[88%] -translate-x-1/2 rounded-full bg-gradient-to-t from-saffron-500/70 via-gold-400/30 to-transparent blur-2xl" />
-            <div className="absolute bottom-4 left-1/2 aspect-square w-[82%] -translate-x-1/2 rounded-full border border-gold-400/50" />
-            <Mandala className="spin-slow absolute bottom-0 left-1/2 w-[96%] -translate-x-1/2 translate-y-[28%] opacity-40" rings={3} />
-            <img src="/person.png" alt={t('Pandit ji', 'पंडित जी')} width="720" height="821" fetchpriority="high" className="relative z-10 h-full w-auto max-w-full object-contain object-bottom drop-shadow-[0_20px_40px_rgba(0,0,0,.45)]" />
+        <Mandala className="spin-slow absolute -right-40 -top-40 w-[640px] opacity-15" />
+        <Mandala className="spin-slower absolute -bottom-56 -left-48 w-[620px] opacity-10" rings={3} />
+        <div className="relative mx-auto max-w-6xl px-3 pt-3 sm:px-4 sm:pt-4">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6 }} className="rounded-2xl bg-gradient-to-br from-gold-300 to-gold-500 p-1 shadow-[0_20px_50px_-15px_rgba(0,0,0,.6)] sm:rounded-3xl sm:p-1.5">
+            <img src="/banner.jpg" width="1600" height="600" fetchpriority="high" alt={t('2151 Kundiya Mrityunjay Maa Pitambara Mahayagya, Agra', 'आगरा में 2151 कुंडीय मृत्युंजय माँ पीतांबरा महायज्ञ')} className="block h-auto w-full rounded-xl sm:rounded-[1.25rem]" />
           </motion.div>
 
-          {/* details */}
-          <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .7, delay: .1 }} className="order-1 py-2 text-center lg:order-2 lg:py-8 lg:text-left">
-            <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/50 bg-white/5 px-3.5 py-1.5 text-xs font-semibold text-gold-300 sm:text-sm"><Flame size={14} className="flicker" />{t('Registration open · Free entry', 'पंजीकरण जारी · निःशुल्क प्रवेश')}</span>
-            <p className="mt-3 text-xs font-semibold text-gold-300/90 sm:text-sm">{t('By the divine grace of Baba Neem Karoli Maharaj ji', 'बाबा नीम करौली जी महाराज की असीम कृपा से')}</p>
-            <h1 className="font-display gold-text mt-2 text-[1.7rem] leading-tight drop-shadow-[0_4px_30px_rgba(244,123,32,.45)] sm:text-4xl lg:text-[2.6rem] xl:text-5xl">
-              {t('2151 Kundiya Mrityunjay Maa Pitambara Mahayagya', '2151 कुंडीय मृत्युंजय माँ पीतांबरा महायज्ञ')}
-            </h1>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-maroon-100/90 sm:text-base lg:mx-0 lg:text-lg">{t('Register your whole family once, sit together at one kund, and enter with a single QR pass.', 'पूरे परिवार का एक बार पंजीकरण करें, एक ही कुंड पर साथ बैठें और एक QR पास से प्रवेश पाएँ।')}</p>
-
-            <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:justify-center lg:justify-start">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6, delay: .15 }} className="py-4 text-center sm:py-5">
+            {/* the banner text is too small on phones, so repeat the title there */}
+            <h1 className="font-display gold-text text-xl leading-tight sm:hidden">{t('2151 Kundiya Mrityunjay Maa Pitambara Mahayagya', '2151 कुंडीय मृत्युंजय माँ पीतांबरा महायज्ञ')}</h1>
+            <h1 className="sr-only hidden sm:block">{t('2151 Kundiya Mrityunjay Maa Pitambara Mahayagya', '2151 कुंडीय मृत्युंजय माँ पीतांबरा महायज्ञ')}</h1>
+            <p className="mx-auto mt-2 max-w-2xl text-sm text-maroon-100/90 sm:mt-0 sm:text-base">{t('Register your whole family once, sit together at one kund, and enter with a single QR pass.', 'पूरे परिवार का एक बार पंजीकरण करें, एक ही कुंड पर साथ बैठें और एक QR पास से प्रवेश पाएँ।')}</p>
+            <div className="mt-3 flex flex-col justify-center gap-2.5 sm:mt-4 sm:flex-row">
               <Btn as={Link} to="/register" className="min-h-13 px-8 text-base sm:text-lg"><Users size={20} /> {t('Register family', 'परिवार का पंजीकरण करें')}</Btn>
               <Btn as={Link} to="/find" variant="ghost" className="min-h-13 px-8 text-base sm:text-lg"><QrCode size={20} /> {t('View my pass', 'प्रवेश पत्र देखें')}</Btn>
             </div>
-
-            <ul className="mt-5 grid grid-cols-2 gap-2 text-left sm:gap-3">
+            <ul className="mt-4 grid grid-cols-2 gap-2 text-left sm:grid-cols-4 sm:gap-3">
               {[
                 [CalendarDays, t('Dates', 'तिथि'), t('14–21 Dec 2026', '14–21 दिसंबर 2026')],
                 [MapPin, t('Venue', 'स्थान'), t('JCB Tiraha, Agra', 'जेसीबी तिराहा, आगरा')],
@@ -66,10 +56,9 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <p className="mt-3 flex items-center justify-center gap-2 text-xs text-maroon-200 sm:text-sm lg:justify-start"><ShieldCheck size={15} className="shrink-0 text-gold-400" />{t('Up to 8 members · seated together · no payment', '8 सदस्यों तक · साथ बैठेंगे · कोई भुगतान नहीं')}</p>
           </motion.div>
         </div>
-        <svg viewBox="0 0 1440 60" className="relative z-20 -mb-px block h-8 w-full text-[var(--color-cream)] sm:h-12" preserveAspectRatio="none"><path fill="currentColor" d="M0 60V30c120 20 240 20 360 5 160-20 320-30 480-10 200 25 360 20 600-15v50z" /></svg>
+        <svg viewBox="0 0 1440 60" className="relative z-20 -mb-px block h-8 w-full text-[var(--color-cream)] sm:h-10" preserveAspectRatio="none"><path fill="currentColor" d="M0 60V30c120 20 240 20 360 5 160-20 320-30 480-10 200 25 360 20 600-15v50z" /></svg>
       </section>
 
       {/* NUMBERS */}

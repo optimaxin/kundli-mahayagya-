@@ -5,6 +5,7 @@ import QRCode from 'qrcode'
 import { CheckCircle2, Download, Flame, Clock, MapPin, Search, Sunrise, Sunset, Users, Printer, Share2, Gift, Sparkles, X } from 'lucide-react'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Mandala, Om } from '../components/ui.jsx'
+import Fireworks from '../components/Fireworks.jsx'
 import { EVENT, getBooking, qrPayload, slotWindow, fmtDate, fmtTime } from '../lib/db.js'
 
 export default function Ticket() {
@@ -16,8 +17,16 @@ export default function Ticket() {
   const [busy, setBusy] = useState(false)
   const ref = useRef(null)
   const [gift, setGift] = useState(false)
-  useEffect(() => { if (!b || !sp.get('new')) return; const x = setTimeout(() => setGift(true), 2200); return () => clearTimeout(x) }, [id])
+  useEffect(() => { if (!b || !sp.get('new')) return; const x = setTimeout(() => setGift(true), 4500); return () => clearTimeout(x) }, [id])
 
+  const pdfRef = useRef(null)
+  const auto = useRef(false)
+  // auto-download the pass once, right after registration (button stays available if the browser blocks it)
+  useEffect(() => {
+    if (!qr || !sp.get('new') || auto.current) return
+    auto.current = true
+    setTimeout(async () => { await document.fonts?.ready; pdfRef.current?.() }, 900)
+  }, [qr])
   useEffect(() => { if (b) QRCode.toDataURL(qrPayload(b), { width: 560, margin: 1, color: { dark: '#430d19', light: '#ffffff' }, errorCorrectionLevel: 'M' }).then(setQr) }, [id])
 
   if (!b) return (
@@ -50,6 +59,7 @@ export default function Ticket() {
       doc.save(`Kundiya-Mahayagya-${b.id}.pdf`)
     } finally { setBusy(false) }
   }
+  pdfRef.current = pdf
   const share = () => navigator.share?.({ title: EVENT.nameEn, text: `Pass ${b.id}`, url: location.href }).catch(() => {})
 
   return (
@@ -147,8 +157,9 @@ function GiftBanner({ className = '' }) {
 function GiftPopup({ onClose }) {
   const { t } = useLang()
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 grid place-items-center bg-maroon-950/70 p-4 backdrop-blur-sm" onClick={onClose}>
-      <motion.div initial={{ scale: .8, y: 30, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: .9, opacity: 0 }} transition={{ type: 'spring', damping: 18 }} onClick={(e) => e.stopPropagation()} className="relative w-full max-w-sm overflow-hidden rounded-[2rem] bg-cream text-center shadow-2xl ring-1 ring-gold-400">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 grid place-items-center bg-maroon-950/80 p-4 backdrop-blur-sm" onClick={onClose}>
+      <Fireworks />
+      <motion.div initial={{ scale: .8, y: 30, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: .9, opacity: 0 }} transition={{ type: 'spring', damping: 18 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-sm overflow-hidden rounded-[2rem] bg-cream text-center shadow-2xl ring-1 ring-gold-400">
         <div className="relative bg-gradient-to-br from-maroon-800 to-maroon-950 px-6 pb-8 pt-9">
           <Mandala className="spin-slow absolute -right-16 -top-16 w-60 opacity-25" rings={3} />
           <button onClick={onClose} aria-label="close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"><X size={18} /></button>

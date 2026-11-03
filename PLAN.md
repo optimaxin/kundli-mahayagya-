@@ -67,7 +67,7 @@ src/components/ui.jsx  navbar, Om logo, footer, buttons, fields, AdSlot, Mandala
 src/components/Scanner.jsx  shared admin/volunteer scanner
 src/components/charts.jsx   dependency-free SVG charts
 src/pages/Home|Register|Ticket|Find|Staff|Admin.jsx
-public/person.png      hero photo   public/favicon.svg
+public/banner.jpg      hero banner   public/favicon.svg
 ```
 
 Run: `npm install && npm run dev` → http://127.0.0.1:5173 · Build: `npm run build`.

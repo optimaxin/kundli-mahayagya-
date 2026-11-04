@@ -7,6 +7,10 @@ import tailwindcss from '@tailwindcss/vite'
 // the API under one domain (reverse proxy `/api` to the backend) or set VITE_API_BASE_URL.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  if (mode === 'production' && !env.VITE_API_BASE_URL) {
+    console.warn('\n[warn] VITE_API_BASE_URL is not set: the site will call /api/v1 on its own domain.\n'
+      + '       On Cloudflare Pages set it to the Render API, e.g. https://mahayagya-api.onrender.com/api/v1\n')
+  }
   return {
     plugins: [react(), tailwindcss()],
     server: {

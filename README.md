@@ -37,8 +37,8 @@ npm run dev                                         # http://localhost:5173, pro
 * Volunteers: `/#/staff`, with a SCANNER account (each account is assigned to one session by the admin)
 * Organisers: `/#/admin`, with an ADMIN or SUPERVISOR account
 
-Production: `npm run build`, then serve `dist/` and the API under one domain (reverse-proxy `/api` to the
-backend), or set `VITE_API_BASE_URL` and add the site origin to the backend's `CORS_ALLOWED_ORIGINS`.
+Production: backend on Render ([`render.yaml`](render.yaml)), frontend on Cloudflare Pages, database on
+Supabase. Step-by-step instructions are in [DEPLOY.md](DEPLOY.md).
 Copy `.env.example` to `.env.local` for frontend settings (only `VITE_*` values reach the browser).
 
 Tests: `cd backend && pytest` (needs the Docker database; 185 tests against real PostgreSQL).

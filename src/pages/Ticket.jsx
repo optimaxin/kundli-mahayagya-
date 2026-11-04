@@ -183,7 +183,7 @@ function GiftPopup({ onClose }) {
         <div className="p-6">
           <p className="flex items-center justify-center gap-1.5 text-lg font-bold text-maroon-900"><Sparkles size={18} className="text-saffron-500" />{t('Generate your Kundali FREE', 'अपनी कुंडली बनाएँ निःशुल्क')}</p>
           <p className="mt-1.5 text-sm text-stone-600">{t('Thank you for registering. Enjoy a complimentary Kundali from Tredeva Astro, our blessing to your family.', 'पंजीकरण के लिए धन्यवाद। त्रिदेव एस्ट्रो की ओर से निःशुल्क कुंडली, आपके परिवार को हमारा आशीर्वाद।')}</p>
-          <Btn as="a" href={KUNDALI_URL} target="_blank" rel="noopener noreferrer" onClick={onClose} className="mt-5 w-full min-h-14 text-base"><Gift size={19} />{t('Get my free Kundali', 'मेरी निःशुल्क कुंडली पाएँ')}</Btn>
+          <Btn as="a" href={KUNDALI_URL} target="_blank" rel="noopener noreferrer" onClick={onClose} className="mt-5 w-full min-h-14 text-base"><Gift size={19} />{t('Get free Kundali', 'निःशुल्क कुंडली पाएँ')}</Btn>
           <button onClick={onClose} className="mt-3 text-sm font-semibold text-stone-500 hover:text-stone-700">{t('Maybe later', 'बाद में')}</button>
         </div>
       </motion.div>

@@ -74,7 +74,7 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
-    @app.get("/health", include_in_schema=False)
+    @app.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
     def platform_health() -> dict[str, str]:
         """Dependency-free liveness probe at the root path, the default for Render and most load balancers.
         (Database readiness is checked by /api/v1/health/ready.)"""

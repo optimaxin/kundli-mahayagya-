@@ -270,3 +270,11 @@ def test_root_health_probe_for_hosting_platforms(client) -> None:  # type: ignor
     r = client.get("/health")
     assert r.status_code == 200 and r.json() == {"status": "ok"}
     assert client.get("/api/v1/health").status_code == 200
+
+
+def test_health_endpoints_answer_head_for_uptime_monitors(client) -> None:  # type: ignore[no-untyped-def]
+    """Uptime monitors (e.g. UptimeRobot) use HEAD by default: it must be 200, not 405."""
+    for path in ("/health", "/api/v1/health", "/api/v1/health/ready"):
+        r = client.head(path)
+        assert r.status_code == 200, path
+        assert r.content == b""

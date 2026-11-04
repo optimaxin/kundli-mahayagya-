@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Flame, Plus, Trash2, User, Users, CalendarCheck, ClipboardCheck, Sunrise, Sunset, AlertCircle } from 'lucide-react'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Field, inputCls } from '../components/ui.jsx'
-import { EVENT, canFit, createBooking, describeError, fmtDate, fmtTime, newKey, slotStats, useSlots } from '../lib/db.js'
+import { EVENT, canFit, createBooking, describeError, fmtDate, fmtTime, loadSlots, newKey, slotStats, slotsError, useSlots } from '../lib/db.js'
 
 const STATES = ['Uttar Pradesh', 'Delhi', 'Rajasthan', 'Madhya Pradesh', 'Haryana', 'Uttarakhand', 'Bihar', 'Gujarat', 'Maharashtra', 'Punjab', 'Himachal Pradesh', 'Jharkhand', 'Chhattisgarh', 'West Bengal', 'Karnataka', 'Tamil Nadu', 'Telangana', 'Andhra Pradesh', 'Kerala', 'Odisha', 'Assam', 'Other']
 const RELS = [['Spouse', 'पति / पत्नी'], ['Parent', 'माता / पिता'], ['Child', 'पुत्र / पुत्री'], ['Sibling', 'भाई / बहन'], ['Relative', 'संबंधी'], ['Friend', 'मित्र / साधक']]
@@ -226,6 +226,13 @@ export default function Register() {
               {step === 2 && (
                 <div className="space-y-5">
                   <Head h={t('Choose day & session', 'दिन व सत्र चुनें')} p={t(`Seats shown are for your ${n}-member family. You can book one session per day: morning or afternoon, not both. Pick several days to attend more days.`, `आपके ${n} सदस्यों के अनुसार उपलब्धता। प्रतिदिन केवल एक सत्र चुन सकते हैं: प्रातः या अपराह्न, दोनों नहीं। अधिक दिनों के लिए अनेक दिन चुनें।`)} />
+                  {slotsError() && !Object.values(fits).some(Boolean) && (
+                    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                      <AlertCircle size={18} className="shrink-0" />
+                      <span className="min-w-0 flex-1">{t('Could not load seat availability. Please check your internet connection.', 'आसन उपलब्धता लोड नहीं हो सकी। कृपया इंटरनेट कनेक्शन जाँचें।')} <span className="font-normal">({describeError(slotsError(), t)})</span></span>
+                      <button type="button" onClick={() => loadSlots().catch(() => {})} className="rounded-full bg-white px-4 py-2 text-xs font-bold text-red-700 ring-1 ring-red-200 active:scale-95">{t('Try again', 'पुनः प्रयास करें')}</button>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     <Chip onClick={() => bulk('morning')}><Sunrise size={15} /> {t('All mornings', 'सभी प्रातः')}</Chip>
                     <Chip onClick={() => bulk('afternoon')}><Sunset size={15} /> {t('All afternoons', 'सभी अपराह्न')}</Chip>
@@ -249,7 +256,7 @@ export default function Register() {
                               </div>
                               <div className="mt-0.5 text-[11px] text-stone-500">{fmtTime(EVENT.sessions[s].start)}</div>
                               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-200"><div className={`h-full ${pct > 85 ? 'bg-red-500' : pct > 60 ? 'bg-saffron-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} /></div>
-                              <div className={`mt-1 text-[11px] font-bold ${can ? 'text-stone-600' : 'text-red-600'}`}>{st.loading ? t('Loading…', 'लोड हो रहा है…') : can ? t(`${st.left.toLocaleString('en-IN')} seats left`, `${st.left.toLocaleString('en-IN')} आसन शेष`) : !st.open && st.left > 0 ? t('Closed', 'बंद') : t('Full', 'पूर्ण')}</div>
+                              <div className={`mt-1 text-[11px] font-bold ${can ? 'text-stone-600' : 'text-red-600'}`}>{st.loading ? (slotsError() ? t('Unavailable', 'उपलब्ध नहीं') : t('Loading…', 'लोड हो रहा है…')) : can ? t(`${st.left.toLocaleString('en-IN')} seats left`, `${st.left.toLocaleString('en-IN')} आसन शेष`) : !st.open && st.left > 0 ? t('Closed', 'बंद') : t('Full', 'पूर्ण')}</div>
                             </button>
                           )
                         })}

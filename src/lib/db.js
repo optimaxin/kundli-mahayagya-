@@ -104,8 +104,22 @@ let slotCache = {}
 let slotVersion = 0
 const slotListeners = new Set()
 
+let slotError = null
+// The last error from loadSlots(), or null once availability has loaded successfully.
+export const slotsError = () => slotError
+
 export async function loadSlots() {
-  const { data } = await request('/sessions', { retries: 1 })
+  let data
+  try {
+    ({ data } = await request('/sessions', { retries: 1 }))
+    if (!Array.isArray(data)) throw new ApiError(0, 'BAD_RESPONSE', 'Unexpected response from the server')
+  } catch (err) {
+    slotError = err
+    slotVersion++
+    slotListeners.forEach((fn) => fn(slotVersion))
+    throw err
+  }
+  slotError = null
   const next = {}
   for (const s of data) {
     next[sk(s.event_date, slotUi(s.slot))] = {

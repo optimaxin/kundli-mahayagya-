@@ -53,6 +53,17 @@ The app refuses to start in production with a missing or weak `JWT_SECRET_KEY` o
 3. **Save and Deploy**. Security and caching headers come from [`public/_headers`](public/_headers). The app
    uses hash routes (`/#/register`), so no SPA redirect rules are needed.
 
+### Hosting the frontend on Vercel instead
+
+Import the repository in Vercel (framework: Vite, build `npm run build`, output `dist`). No environment
+variable is needed: [`.env.production`](.env.production) already points the build at
+`https://kundli-mahayagya.onrender.com/api/v1`. A `VITE_API_BASE_URL` set in the Vercel or Cloudflare
+dashboard overrides it.
+
+**Whichever host you use, its exact domain must be in Render's `CORS_ALLOWED_ORIGINS`.** Otherwise the
+browser blocks every API call, and the session picker stays on "Loading…" (now "Unavailable" with an error
+message). Example: `https://kundli-mahayagya.vercel.app,https://kundli-mahayagya.pages.dev`.
+
 ## 3. After both are up
 
 1. If the Pages URL differs from what you entered for `CORS_ALLOWED_ORIGINS`, update it in Render

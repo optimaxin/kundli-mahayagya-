@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { LayoutDashboard, List, ScanLine, Grid3x3, Settings, LogOut, Users, Armchair, DoorOpen, Percent, Download, Search, Check, Lock, Trash2, ChevronDown, Ban, UserCog, UserPlus, TrendingUp, Home, FileSpreadsheet, Mail } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Mandala, Om } from '../components/ui.jsx'
 import Scanner from '../components/Scanner.jsx'
 import { Area, Columns, Donut, HBars, Heat, PAL, StackedBars } from '../components/charts.jsx'
 import {
   EVENT, ZONES, addStaff, analytics, currentAuth, describeError, downloadReport, exportBookings, fmtDate, kundFamilies,
-  kundMap, login, logout, markEntered, removeStaff, reportStatus, requestReport, searchBookings, slotOf,
+  kundMap, signIn, logout, markEntered, removeStaff, reportStatus, requestReport, searchBookings, slotOf,
   slotStats, slotWindow, staffList, toggleBlock, updateStaff, usePoll, useSlots, zoneRange,
 } from '../lib/db.js'
 
@@ -17,6 +17,7 @@ const SESSION_IDS = Array.from({ length: EVENT.dates.length * 2 }, (_, i) => i +
 
 export default function Admin() {
   const { t } = useLang()
+  const navigate = useNavigate()
   const [auth, setAuth] = useState(() => currentAuth('admin'))
   const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
@@ -33,7 +34,11 @@ export default function Admin() {
   const submit = async (e) => {
     e.preventDefault()
     setBusy(true); setErr('')
-    try { setAuth(await login('admin', email, pw)); setPw('') } catch (x) { setErr(x.status === 401 ? t('Wrong email or password', 'गलत ईमेल या पासवर्ड') : describeError(x, t)) } finally { setBusy(false) }
+    try {
+      const r = await signIn(email, pw)
+      setPw('')
+      if (r.kind === 'admin') setAuth(r); else navigate('/staff') // gate (scanner) accounts go to the gate page
+    } catch (x) { setErr(x.status === 401 ? t('Wrong email or password', 'गलत ईमेल या पासवर्ड') : describeError(x, t)) } finally { setBusy(false) }
   }
   const signOut = async () => { await logout('admin'); setAuth(null) }
 
@@ -47,7 +52,6 @@ export default function Admin() {
         <input type="password" autoComplete="current-password" value={pw} onChange={(e) => { setPw(e.target.value); setErr('') }} placeholder={t('Password', 'पासवर्ड')} className={`mt-3 min-h-12 w-full rounded-xl border px-4 outline-none focus:ring-4 ${err ? 'border-red-400 focus:ring-red-100' : 'border-slate-300 focus:border-saffron-500 focus:ring-saffron-100'}`} />
         {err && <p className="mt-1 text-xs font-semibold text-red-600">{err}</p>}
         <Btn type="submit" variant="maroon" className="mt-4 w-full" disabled={busy || !email || !pw}>{t('Enter', 'प्रवेश')}</Btn>
-        <p className="mt-4 text-center text-[11px] text-slate-400">{t('Volunteers use', 'स्वयंसेवक यहाँ जाएँ')} <Link to="/staff" className="font-bold text-saffron-600">/staff</Link></p>
       </motion.form>
     </div>
   )

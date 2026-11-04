@@ -41,6 +41,8 @@ export class ApiError extends Error {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+// Spread retries over 1x-2x the wait so thousands of clients don't retry at the same instant.
+const jitter = (ms) => ms * (1 + Math.random())
 
 async function request(path, { method = 'GET', body, auth, headers = {}, retries = 0, raw = false } = {}) {
   const h = { Accept: 'application/json', ...headers }
@@ -53,11 +55,11 @@ async function request(path, { method = 'GET', body, auth, headers = {}, retries
     try {
       res = await fetch(API_BASE + path, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) })
     } catch {
-      if (attempt < retries) { await sleep(800 * (attempt + 1)); continue }
+      if (attempt < retries) { await sleep(jitter(800 * (attempt + 1))); continue }
       throw new ApiError(0, 'NETWORK', 'Network error. Please check your connection and try again.')
     }
     const retryAfter = Number(res.headers.get('Retry-After')) || 0
-    if (res.status === 503 && attempt < retries) { await sleep(Math.min(8, retryAfter || 2) * 1000); continue }
+    if (res.status === 503 && attempt < retries) { await sleep(jitter(Math.min(8, retryAfter || 2) * 1000)); continue }
     if (raw && res.ok) return res
     let json = null
     try { json = await res.json() } catch { /* empty body */ }
@@ -268,10 +270,11 @@ export function currentAuth(kind) {
 }
 function clearAuth(kind) { try { sessionStorage.removeItem(AUTH_KEYS[kind]) } catch { /* ignore */ } }
 
-export async function login(kind, email, password) {
+// One login for everyone: the server's role decides the panel. SCANNER -> 'staff', ADMIN/SUPERVISOR -> 'admin'.
+// Returns { kind, ...auth } so the caller can open the matching panel.
+export async function signIn(email, password) {
   const { data } = await request('/auth/login', { method: 'POST', body: { email: email.trim(), password } })
-  const allowed = kind === 'admin' ? ['ADMIN', 'SUPERVISOR'] : ['SCANNER']
-  if (!allowed.includes(data.role)) throw new ApiError(403, 'WRONG_ROLE', kind === 'admin' ? 'This account is a gate scanner account. Use /staff.' : 'This is not a gate scanner account.')
+  const kind = data.role === 'SCANNER' ? 'staff' : 'admin'
   const a = { token: data.access_token, role: data.role, expiresAt: Date.parse(data.expires_at) }
   sessionStorage.setItem(AUTH_KEYS[kind], JSON.stringify(a))
   try {
@@ -279,13 +282,12 @@ export async function login(kind, email, password) {
     a.user = { id: me.data.id, name: me.data.full_name, email: me.data.email, sessionId: me.data.assigned_session_id }
     sessionStorage.setItem(AUTH_KEYS[kind], JSON.stringify(a))
   } catch { /* profile is optional */ }
-  return a
+  return { kind, ...a }
 }
 export async function logout(kind) {
   try { await request('/auth/logout', { method: 'POST', auth: kind }) } catch { /* token may already be invalid */ }
   clearAuth(kind)
 }
-export const staffLogin = (email, password) => login('staff', email, password)
 
 // --------------------------------------------------------------- scanner
 const passRef = (code) => {

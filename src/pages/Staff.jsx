@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { KeyRound, LogOut, Mail, ScanLine } from 'lucide-react'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Mandala } from '../components/ui.jsx'
 import Scanner from '../components/Scanner.jsx'
-import { EVENT, currentAuth, describeError, fmtDate, logout, scannerMe, staffLogin } from '../lib/db.js'
+import { EVENT, currentAuth, describeError, fmtDate, logout, scannerMe, signIn } from '../lib/db.js'
 
 // Volunteer gate page: log in with the gate (scanner) account given by the organisers. The account is
 // assigned to one session by the admin; the server decides which session is being scanned.
 export default function Staff() {
   const { t, lang } = useLang()
+  const navigate = useNavigate()
   const [me, setMe] = useState(() => currentAuth('staff'))
   const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
@@ -27,7 +29,11 @@ export default function Staff() {
   const submit = async (e) => {
     e.preventDefault()
     setBusy(true); setErr('')
-    try { setMe(await staffLogin(email, pw)); setPw('') } catch (x) { setErr(x.status === 401 ? t('Wrong email or password', 'गलत ईमेल या पासवर्ड') : describeError(x, t)) } finally { setBusy(false) }
+    try {
+      const r = await signIn(email, pw)
+      setPw('')
+      if (r.kind === 'staff') setMe(r); else navigate('/admin') // admin / supervisor accounts go to the admin console
+    } catch (x) { setErr(x.status === 401 ? t('Wrong email or password', 'गलत ईमेल या पासवर्ड') : describeError(x, t)) } finally { setBusy(false) }
   }
 
   if (!me) return (
@@ -35,8 +41,8 @@ export default function Staff() {
       <Mandala className="spin-slow absolute w-[800px] opacity-15" />
       <motion.form initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} onSubmit={submit} className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 shadow-2xl">
         <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-saffron-500 text-white"><ScanLine /></span>
-        <h1 className="font-display mt-4 text-center text-2xl text-maroon-900">{t('Volunteer login', 'स्वयंसेवक लॉगिन')}</h1>
-        <p className="mt-1 text-center text-sm text-slate-500">{t('Use the gate account given by the organisers', 'आयोजकों द्वारा दिया गया गेट खाता उपयोग करें')}</p>
+        <h1 className="font-display mt-4 text-center text-2xl text-maroon-900">{t('Staff & admin login', 'स्टाफ व एडमिन लॉगिन')}</h1>
+        <p className="mt-1 text-center text-sm text-slate-500">{t('Use the account given by the organisers', 'आयोजकों द्वारा दिया गया खाता उपयोग करें')}</p>
         <div className="relative mt-5">
           <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="email" autoFocus autoComplete="username" value={email} onChange={(e) => { setEmail(e.target.value); setErr('') }} placeholder={t('Email', 'ईमेल')} className="min-h-12 w-full rounded-xl border border-slate-300 pl-10 pr-4 outline-none focus:border-saffron-500 focus:ring-4 focus:ring-saffron-100" />

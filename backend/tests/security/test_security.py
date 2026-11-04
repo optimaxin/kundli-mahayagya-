@@ -263,3 +263,10 @@ def test_database_outage_returns_retryable_503(monkeypatch) -> None:  # type: ig
     assert r.status_code == 503
     assert r.json()["error"]["code"] == "DATABASE_UNAVAILABLE" and r.headers["Retry-After"] == "5"
     assert "server closed" not in r.text  # no internal error details leaked
+
+
+def test_root_health_probe_for_hosting_platforms(client) -> None:  # type: ignore[no-untyped-def]
+    """Render/other platforms probe /health by default; it must answer 200 without touching the database."""
+    r = client.get("/health")
+    assert r.status_code == 200 and r.json() == {"status": "ok"}
+    assert client.get("/api/v1/health").status_code == 200

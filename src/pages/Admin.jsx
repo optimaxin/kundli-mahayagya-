@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { LayoutDashboard, List, ScanLine, Grid3x3, Settings, LogOut, Users, Armchair, DoorOpen, Percent, Download, Search, Check, Lock, Trash2, ChevronDown, Ban, UserCog, UserPlus, TrendingUp, Home, FileSpreadsheet, Mail } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import Staff from './Staff.jsx'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Mandala, Om } from '../components/ui.jsx'
 import Scanner from '../components/Scanner.jsx'
@@ -17,8 +18,8 @@ const SESSION_IDS = Array.from({ length: EVENT.dates.length * 2 }, (_, i) => i +
 
 export default function Admin() {
   const { t } = useLang()
-  const navigate = useNavigate()
   const [auth, setAuth] = useState(() => currentAuth('admin'))
+  const [gate, setGate] = useState(() => !currentAuth('admin') && !!currentAuth('staff'))
   const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
   const [err, setErr] = useState('')
@@ -37,10 +38,12 @@ export default function Admin() {
     try {
       const r = await signIn(email, pw)
       setPw('')
-      if (r.kind === 'admin') setAuth(r); else navigate('/staff') // gate (scanner) accounts go to the gate page
+      if (r.kind === 'admin') setAuth(r); else setGate(true) // gate (scanner) accounts get the gate panel on this same URL
     } catch (x) { setErr(x.status === 401 ? t('Wrong email or password', 'गलत ईमेल या पासवर्ड') : describeError(x, t)) } finally { setBusy(false) }
   }
   const signOut = async () => { await logout('admin'); setAuth(null) }
+
+  if (!auth && gate) return <Staff onAdmin={(r) => { setAuth(r); setGate(false) }} />
 
   if (!auth) return (
     <div className="relative grid min-h-[80vh] place-items-center overflow-hidden bg-gradient-to-br from-maroon-950 to-maroon-800 px-4">

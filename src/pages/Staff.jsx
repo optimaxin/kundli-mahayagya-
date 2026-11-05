@@ -9,7 +9,7 @@ import { EVENT, currentAuth, describeError, fmtDate, logout, scannerMe, signIn }
 
 // Volunteer gate page: log in with the gate (scanner) account given by the organisers. The account is
 // assigned to one session by the admin; the server decides which session is being scanned.
-export default function Staff() {
+export default function Staff({ onAdmin }) {
   const { t, lang } = useLang()
   const navigate = useNavigate()
   const [me, setMe] = useState(() => currentAuth('staff'))
@@ -32,7 +32,7 @@ export default function Staff() {
     try {
       const r = await signIn(email, pw)
       setPw('')
-      if (r.kind === 'staff') setMe(r); else navigate('/admin') // admin / supervisor accounts go to the admin console
+      if (r.kind === 'staff') setMe(r); else if (onAdmin) onAdmin(r); else navigate('/admin') // admin / supervisor accounts go to the admin console
     } catch (x) { setErr(x.status === 401 ? t('Wrong email or password', 'गलत ईमेल या पासवर्ड') : describeError(x, t)) } finally { setBusy(false) }
   }
 

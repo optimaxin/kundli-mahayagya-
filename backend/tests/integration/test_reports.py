@@ -59,7 +59,7 @@ def test_report_accuracy_after_completion(client, db: Session, tmp_path: Path) -
     wb = load_workbook(tmp_path / "f.xlsx", read_only=True)
     attendance = _rows(wb, "Session Attendance")
     s1_rows = [r for r in attendance if r[0] == 1]
-    assert len(s1_rows) == 5 and sum(1 for r in s1_rows if r[8] == "YES") == 2
+    assert len(s1_rows) == 5 and sum(1 for r in s1_rows if r[10] == "YES") == 2
     no_shows = [r for r in _rows(wb, "No Shows") if r[0] == 1]
     assert len(no_shows) == 3
     assert {(r[3], r[5]) for r in no_shows} == {(a["booking_number"], 3), (b["booking_number"], 1), (b["booking_number"], 2)}

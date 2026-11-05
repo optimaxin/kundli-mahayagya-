@@ -272,12 +272,12 @@ def test_dashboard_and_excel_report_for_a_two_session_family(client, db: Session
     assert len([r for r in rows("Family Members") if r[0] == both["booking_number"]]) == 4  # not doubled
 
     attendance = [r for r in rows("Session Attendance") if r[3] == both["booking_number"]]
-    assert sorted((r[0], r[5]) for r in attendance) == [(s, m) for s in (1, 2) for m in (1, 2, 3, 4)]
-    checked = sorted((r[0], r[5]) for r in attendance if r[8] in (True, "Yes", "YES"))
+    assert sorted((r[0], r[7]) for r in attendance) == [(s, m) for s in (1, 2) for m in (1, 2, 3, 4)]
+    checked = sorted((r[0], r[7]) for r in attendance if r[10] == "YES")
     assert checked == [(1, 1), (2, 1), (2, 2)]
 
     alloc = rows("Kund Allocation")
-    fam_in = {r[0] for r in alloc if r[9] and both["booking_number"] in r[9]}
+    fam_in = {r[0] for r in alloc if r[11] and both["booking_number"] in r[11]}
     assert fam_in == {1, 2}
     no_shows = [(r[0], r[5]) for r in rows("No Shows") if r[3] == both["booking_number"]]
     assert sorted(no_shows) == [(1, 2), (1, 3), (1, 4), (2, 3), (2, 4)]

@@ -143,9 +143,10 @@ def test_kund_allocation_lists_families_per_kund_deterministically(client, admin
     wb = load_workbook(io.BytesIO(client.get(f"/api/v1/reports/exports/{job['id']}/download",
                                               headers=auth(admin_token)).content), read_only=True)
     rows = list(wb["Kund Allocation"].iter_rows(min_row=2, values_only=True))
-    k1 = next(r for r in rows if r[0] == 1 and r[3] == 1)
-    assert (k1[5], k1[6], k1[7]) == (8, 7, 1)
-    assert k1[9] == f"{a['booking_number']}:3, {b['booking_number']}:4"  # booking order
+    k1 = next(r for r in rows if r[0] == 1 and r[5] == 1)
+    assert (k1[3], k1[4]) == ("Brahma", 1)  # zone / sector
+    assert (k1[7], k1[8], k1[9]) == (8, 7, 1)
+    assert k1[11] == f"{a['booking_number']}:3, {b['booking_number']}:4"  # booking order
     assert len(rows) == 2151 * 2  # every Kund of both sessions of the day, empty ones included
 
 

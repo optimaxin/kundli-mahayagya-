@@ -8,7 +8,7 @@ import { Btn, Mandala, Om } from '../components/ui.jsx'
 import Scanner from '../components/Scanner.jsx'
 import { Area, Columns, Donut, HBars, Heat, PAL, StackedBars } from '../components/charts.jsx'
 import {
-  EVENT, ZONES, kundLabel, cancelBooking, addStaff, analytics, currentAuth, describeError, exportBookings, fmtDate, kundFamilies,
+  EVENT, ZONES, kundLabel, sectorOf, cancelBooking, addStaff, analytics, currentAuth, describeError, exportBookings, fmtDate, kundFamilies,
   kundMap, signIn, logout, markEntered, removeStaff, activateStaff, resetStaffPassword, generateAndDownloadReport,
   searchBookings, slotOf,
   slotStats, slotWindow, staffList, toggleBlock, updateStaff, usePoll, useSlots, zoneRange,
@@ -343,8 +343,18 @@ function KundMap() {
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         <Card className="!p-3">
           {!map ? <Loading /> : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] gap-1.5">
-              {cells.map((k) => <button key={k} onClick={() => setSel(k)} title={`${occ[k] || 0}/${EVENT.seats}`} className={`aspect-square rounded-lg text-[10px] font-bold transition active:scale-90 ${color(k)} ${sel === k ? 'ring-2 ring-maroon-900 ring-offset-1' : ''}`}>{k}</button>)}
+            <div className="space-y-4">
+              {[0, 1, 2, 3, 4].map((sec) => {
+                const ks = cells.filter((k) => sectorOf(k) === sec)
+                return ks.length > 0 && (
+                  <div key={sec}>
+                    <div className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">{t('Sector', 'सेक्टर')} {sec + 1} · {ks.length} {t('kunds', 'कुंड')} <span className="font-medium normal-case">(#{ks[0]}–{ks[ks.length - 1]})</span></div>
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] gap-1.5">
+                      {ks.map((k) => <button key={k} onClick={() => setSel(k)} title={`${occ[k] || 0}/${EVENT.seats}`} className={`aspect-square rounded-lg text-[10px] font-bold transition active:scale-90 ${color(k)} ${sel === k ? 'ring-2 ring-maroon-900 ring-offset-1' : ''}`}>{k}</button>)}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </Card>
@@ -352,7 +362,7 @@ function KundMap() {
           {!sel ? <p className="text-sm text-slate-500">{t('Select a kund.', 'कोई कुंड चुनें।')}</p> : (
             <>
               <div className="text-xl font-bold text-slate-900">{t('Kund', 'कुंड')} #{sel}</div>
-              <div className="text-xs text-slate-500">{t(ZONES[Math.min(10, zone)][0], ZONES[Math.min(10, zone)][1])} · {occ[sel] || 0}/{EVENT.seats} {t('seats', 'आसन')}{inactive[sel] ? ` · ${t('inactive (all sessions)', 'निष्क्रिय (सभी सत्र)')}` : ''}</div>
+              <div className="text-xs text-slate-500">{kundLabel(sel, t)} · {occ[sel] || 0}/{EVENT.seats} {t('seats', 'आसन')}{inactive[sel] ? ` · ${t('inactive (all sessions)', 'निष्क्रिय (सभी सत्र)')}` : ''}</div>
               <div className="mt-2 flex gap-1">{Array.from({ length: EVENT.seats }, (_, i) => <span key={i} className={`size-5 rounded-full ${i < (occ[sel] || 0) ? 'bg-maroon-700' : 'bg-slate-200'}`} />)}</div>
               <div className="mt-3 space-y-2">{fams.map((b) => <div key={b.id} className="rounded-lg bg-slate-50 p-2.5 text-sm"><b>{b.name}</b> · {b.size}<div className="text-xs text-slate-500">{b.id}</div></div>)}</div>
               {!occ[sel] && !inactive[sel] && <Btn variant="ghost" className="mt-4 w-full text-sm" onClick={block}><Ban size={16} />{blocked[sel] ? t('Unblock', 'खोलें') : t('Block this kund', 'कुंड बंद करें')}</Btn>}

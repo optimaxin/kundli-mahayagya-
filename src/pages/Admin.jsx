@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { LayoutDashboard, List, ScanLine, Grid3x3, Settings, LogOut, Users, Armchair, DoorOpen, Percent, Download, Search, Check, Lock, Trash2, ChevronDown, Ban, UserCog, UserPlus, TrendingUp, Home, FileSpreadsheet, Mail, KeyRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -467,23 +467,47 @@ function Volunteers() {
 }
 
 // "Excel रिपोर्ट डाउनलोड करें": generates the 7-sheet workbook on the server and downloads it.
+// Loading starts at the click, the button stays disabled until the request ends (success or failure), and
+// a second click while a report is running is ignored (the API layer also refuses duplicate requests).
 function ExcelReportButton({ type = 'FINAL', date = null, label, variant, className = '' }) {
   const { t } = useLang()
   const [state, setState] = useState('idle')
   const [err, setErr] = useState('')
-  const run = async () => {
-    setErr('')
-    try { await generateAndDownloadReport(type, date, setState); setState('done') } catch (x) { setErr(describeError(x, t)); setState('idle') }
-  }
+  const [secs, setSecs] = useState(0)
+  const running = useRef(false)
   const busy = state === 'generating' || state === 'downloading'
+  useEffect(() => {
+    if (!busy) return undefined
+    const t0 = Date.now()
+    setSecs(0)
+    const id = setInterval(() => setSecs(Math.floor((Date.now() - t0) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [busy])
+  const run = async () => {
+    if (running.current) return
+    running.current = true
+    setErr('')
+    setState('generating')
+    try {
+      await generateAndDownloadReport(type, date, setState)
+      setState('done')
+    } catch (x) {
+      setErr(describeError(x, t))
+      setState('idle')
+    } finally {
+      running.current = false
+    }
+  }
+  const timer = secs >= 3 ? ` ${secs}s` : ''
   return (
     <div className={`flex flex-col items-start gap-1 ${className}`}>
-      <Btn variant={variant} disabled={busy} onClick={run} className="min-h-11 px-4 text-sm">
+      <Btn variant={variant} disabled={busy} onClick={run} className="min-h-11 px-4 text-sm" aria-busy={busy}>
         <FileSpreadsheet size={18} />
-        {state === 'generating' ? t('Preparing report…', 'रिपोर्ट तैयार हो रही है…') : state === 'downloading' ? t('Downloading…', 'डाउनलोड हो रही है…') : label || t('Download Excel report', 'Excel रिपोर्ट डाउनलोड करें')}
+        {state === 'generating' ? t('Preparing report…', 'रिपोर्ट तैयार हो रही है…') + timer : state === 'downloading' ? t('Downloading…', 'डाउनलोड हो रही है…') : label || t('Download Excel report', 'Excel रिपोर्ट डाउनलोड करें')}
       </Btn>
+      {state === 'generating' && secs >= 15 && <span className="max-w-xs text-xs text-slate-500" role="status">{t('The server is slow right now. Please keep this page open.', 'सर्वर अभी धीमा है। कृपया यह पेज खुला रखें।')}</span>}
       {state === 'done' && <span className="text-xs font-semibold text-emerald-700">{t('Report downloaded', 'रिपोर्ट डाउनलोड हो गई')}</span>}
-      {err && <span className="text-xs font-semibold text-red-600">{err}</span>}
+      {err && <span className="text-xs font-semibold text-red-600" role="alert">{err}</span>}
     </div>
   )
 }

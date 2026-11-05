@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from app.core import clock, security
 from app.core.rate_limit import MemoryBackend, RateSpec
 from app.schemas.registration import RegistrationRequest
-from app.services.reporting_service import _safe
+from app.services.xlsx_stream import XlsxStream
 from app.utils import validators as v
 from app.utils.identifiers import (
     BOOKING_NUMBER_RE,
@@ -146,7 +146,11 @@ def test_registration_schema() -> None:
 
 
 def test_excel_formula_injection_neutralised() -> None:
-    assert _safe("=1+1") == "'=1+1"
-    assert _safe("+91 phone") == "'+91 phone"
-    assert _safe("normal") == "normal"
-    assert _safe(5) == 5
+    import io
+
+    from openpyxl import load_workbook
+
+    buf = io.BytesIO()
+    with XlsxStream(buf) as book, book.sheet("S", ["h"]) as sheet:
+        sheet.append(["=1+1", "+91 phone", "normal", 5])
+    assert [c.value for c in load_workbook(io.BytesIO(buf.getvalue()))["S"][2]] == ["'=1+1", "'+91 phone", "normal", 5]

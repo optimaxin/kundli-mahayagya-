@@ -79,6 +79,7 @@ async function request(path, { method = 'GET', body, auth, headers = {}, retries
 // Turns any error into a short user-facing sentence.
 export function describeError(err, t = (en) => en) {
   if (!(err instanceof ApiError)) return t('Something went wrong. Please try again.', 'कुछ गड़बड़ हुई। कृपया पुनः प्रयास करें।')
+  if (err.code === 'NETWORK' && err.context === 'report') return t('Could not reach the server. Check your internet connection; the server may be waking up, so try again in a minute.', 'सर्वर से संपर्क नहीं हो पाया। इंटरनेट जाँचें; सर्वर चालू हो रहा हो सकता है, एक मिनट बाद पुनः प्रयास करें।')
   if (err.code === 'NETWORK') return t('No connection to the server. Please try again.', 'सर्वर से संपर्क नहीं हो पाया। कृपया पुनः प्रयास करें।')
   if (err.code === 'VALIDATION_ERROR' && Array.isArray(err.details) && err.details.length)
     return err.details.map((d) => d.message).join('. ')
@@ -95,6 +96,10 @@ export function describeError(err, t = (en) => en) {
   if (err.code === 'EMAIL_EXISTS') return t('An account with this email already exists.', 'इस ईमेल से खाता पहले से मौजूद है।')
   if (err.code === 'INVALID_SESSION') return t('Please choose a valid session.', 'कृपया मान्य सत्र चुनें।')
   if (err.code === 'ADMIN_PASSWORD_RESET') return t('Admin passwords can only be changed by their owner.', 'एडमिन का पासवर्ड केवल वही स्वयं बदल सकते हैं।')
+  if (err.code === 'REPORT_FAILED') return t('The report could not be prepared. Please try again.', 'रिपोर्ट तैयार नहीं हो सकी। कृपया पुनः प्रयास करें।')
+  if (err.code === 'REPORT_TIMEOUT') return t('The report is taking too long. Please try again in a few minutes.', 'रिपोर्ट बनने में बहुत समय लग रहा है। कृपया कुछ मिनट बाद पुनः प्रयास करें।')
+  if (err.code === 'REPORT_INVALID') return t('The downloaded file was incomplete. Please try again.', 'डाउनलोड की गई फ़ाइल अधूरी थी। कृपया पुनः प्रयास करें।')
+  if (err.code === 'REPORT_BUSY') return t('Another report is being prepared. Please wait for it to finish.', 'दूसरी रिपोर्ट तैयार हो रही है। कृपया उसके पूरा होने तक प्रतीक्षा करें।')
   if (err.code === 'REPORT_EXPIRED') return t('The report file is no longer available. Please generate it again.', 'रिपोर्ट फ़ाइल अब उपलब्ध नहीं है। कृपया दोबारा बनाएँ।')
   if (err.status === 429) return t('Too many attempts. Please wait a minute and try again.', 'बहुत अधिक प्रयास। एक मिनट बाद पुनः प्रयास करें।')
   if (err.status === 503) return t('The system is busy. Please try again in a few seconds.', 'सिस्टम व्यस्त है। कुछ सेकंड बाद पुनः प्रयास करें।')
@@ -405,12 +410,48 @@ export async function resetStaffPassword(id, newPassword) {
 
 // Create the Excel report on the server, wait for it, then download it.
 // onStatus receives 'generating' / 'downloading'. Throws ApiError on failure.
-export async function generateAndDownloadReport(type = 'FINAL', date = null, onStatus = () => {}) {
+//
+// - Single flight: only one report runs at a time. Clicking the same report again returns the request
+//   that is already running (no duplicate job on the server); a different report is refused until it ends.
+// - Polling starts fast and backs off; it is bounded by time, not by a number of polls, and rides out a
+//   few transient poll failures (the free server may be waking up or busy generating the workbook).
+// - The downloaded file is checked to really be an .xlsx before it is handed to the browser.
+const REPORT_MAX_WAIT_MS = 10 * 60 * 1000
+const REPORT_POLL_FAILURES = 4
+const XLSX_TYPE = 'spreadsheetml'
+let reportFlight = null // { key, promise }
+
+export function generateAndDownloadReport(type = 'FINAL', date = null, onStatus = () => {}) {
+  const key = `${type}|${date || ''}`
+  if (reportFlight) {
+    if (reportFlight.key === key) return reportFlight.promise
+    return Promise.reject(new ApiError(409, 'REPORT_BUSY', 'Another report is already being prepared'))
+  }
+  const promise = runReport(type, date, onStatus)
+    .catch((e) => { if (e instanceof ApiError && e.code === 'NETWORK') e.context = 'report'; throw e })
+    .finally(() => { reportFlight = null })
+  reportFlight = { key, promise }
+  return promise
+}
+
+const pollDelay = (elapsedMs) => (elapsedMs < 10_000 ? 1000 : elapsedMs < 60_000 ? 2000 : 4000)
+const isTransient = (e) => e instanceof ApiError && (e.code === 'NETWORK' || e.status >= 500 || e.status === 429)
+
+async function runReport(type, date, onStatus) {
   onStatus('generating')
-  let job = await requestReport(type, date)
-  for (let i = 0; i < 150 && (job.status === 'PENDING' || job.status === 'RUNNING'); i++) {
-    await sleep(2000)
-    job = await reportStatus(job.id)
+  const started = Date.now()
+  let job = await requestReport(type, date) // never retried: a retry could create a second job
+  let failures = 0
+  while (job.status === 'PENDING' || job.status === 'RUNNING') {
+    const elapsed = Date.now() - started
+    if (elapsed > REPORT_MAX_WAIT_MS) throw new ApiError(504, 'REPORT_TIMEOUT', 'Report is taking too long')
+    await sleep(pollDelay(elapsed))
+    try {
+      job = await reportStatus(job.id)
+      failures = 0
+    } catch (e) {
+      if (!isTransient(e) || ++failures >= REPORT_POLL_FAILURES) throw e
+    }
   }
   if (job.status !== 'COMPLETED') throw new ApiError(500, 'REPORT_FAILED', 'Report generation failed')
   onStatus('downloading')
@@ -424,8 +465,14 @@ export async function requestReport(type, date) {
 }
 export async function reportStatus(id) { return (await request(`/reports/exports/${id}`, { auth: 'admin' })).data }
 export async function downloadReport(id, fileName) {
-  const res = await request(`/reports/exports/${id}/download`, { auth: 'admin', raw: true })
-  const url = URL.createObjectURL(await res.blob())
+  const res = await request(`/reports/exports/${id}/download`, { auth: 'admin', raw: true, retries: 2 })
+  let blob
+  try { blob = await res.blob() } catch { throw new ApiError(0, 'NETWORK', 'Download was interrupted') }
+  const type = res.headers.get('Content-Type') || ''
+  const expected = Number(res.headers.get('Content-Length')) || 0
+  if (!type.includes(XLSX_TYPE) || blob.size < 1000 || (expected && blob.size !== expected))
+    throw new ApiError(502, 'REPORT_INVALID', 'The downloaded file is not a valid report')
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url; a.download = fileName || 'mahayagya-report.xlsx'; a.click()
   setTimeout(() => URL.revokeObjectURL(url), 5000)

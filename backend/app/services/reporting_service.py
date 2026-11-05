@@ -33,6 +33,7 @@ from app.core.config import get_settings
 from app.core.database import get_sessionmaker
 from app.core.errors import NotFound, ValidationFailed
 from app.models import (
+    AdminUser,
     AttendanceCheckin,
     Booking,
     BookingSession,
@@ -53,6 +54,17 @@ _HEADER_FONT = Font(bold=True, color="FFFFFF")
 _HEADER_FILL = PatternFill("solid", fgColor="8B2500")
 _FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 _STREAM = {"yield_per": 2000}
+
+# Layout shown on passes: 11 zones x 5 sectors (sectors 1-4 = 39 kunds, sector 5 = the rest of the zone).
+_ZONES = ["Brahma", "Vishnu", "Shiva", "Surya", "Ganesha", "Durga", "Lakshmi", "Saraswati", "Hanuman", "Indra", "Agni"]
+_PER_ZONE = 196
+
+
+def zone_sector(kund_number: int) -> tuple[str, int]:
+    """Same mapping as the frontend (src/lib/db.js): returns ("Brahma", 1..5)."""
+    z = min(len(_ZONES) - 1, (kund_number - 1) // _PER_ZONE)
+    o = (kund_number - 1) % _PER_ZONE
+    return _ZONES[z], (5 if o >= 156 else o // 39 + 1)
 
 
 def _safe(value: Any) -> Any:
@@ -237,7 +249,7 @@ class ReportingService:
             .order_by(BookingSession.booking_id, BookingSession.session_id)
             .execution_options(**_STREAM)
         ):
-            alloc.setdefault(bid, []).append(f"{sid}:K{kn}:{st[0]}")
+            alloc.setdefault(bid, []).append(f"{sid}:K{kn}({zone_sector(kn)[0]}-S{zone_sector(kn)[1]}):{st[0]}")
         for b in db.scalars(
             select(Booking).where(Booking.id.in_(in_scope_bookings)).order_by(Booking.id).execution_options(**_STREAM)
         ):
@@ -264,14 +276,14 @@ class ReportingService:
         # 4. Session Attendance (one row per member per reservation)
         sa = _Sheet(
             wb, "Session Attendance",
-            ["Session", "Date", "Slot", "Booking number", "Kund", "Member #", "Full name", "Reservation status",
-             "Checked in", "Checked in at", "Source"],
-            [8, 11, 9, 16, 7, 9, 28, 12, 10, 20, 12],
+            ["Session", "Date", "Slot", "Booking number", "Zone", "Sector", "Kund", "Member #", "Full name",
+             "Reservation status", "Checked in", "Checked in at", "Source", "Scanned by", "Scanner email"],
+            [8, 11, 9, 16, 12, 7, 7, 9, 28, 12, 10, 20, 12, 24, 28],
         )
-        for sid, bn, kn, mn, name, rst, at, src in db.execute(
+        for sid, bn, kn, mn, name, rst, at, src, scan_name, scan_email in db.execute(
             select(BookingSession.session_id, Booking.booking_number, Kund.kund_number, FamilyMember.member_number,
                    FamilyMember.full_name, BookingSession.status, AttendanceCheckin.checked_in_at,
-                   AttendanceCheckin.source)
+                   AttendanceCheckin.source, AdminUser.full_name, AdminUser.email)
             .join(Booking, Booking.id == BookingSession.booking_id)
             .join(Kund, Kund.id == BookingSession.kund_id)
             .join(FamilyMember, FamilyMember.booking_id == BookingSession.booking_id)
@@ -280,19 +292,22 @@ class ReportingService:
                 (AttendanceCheckin.booking_session_id == BookingSession.id)
                 & (AttendanceCheckin.member_id == FamilyMember.id),
             )
+            .outerjoin(AdminUser, AdminUser.id == AttendanceCheckin.scanner_id)
             .where(BookingSession.session_id.in_(ids))
             .order_by(BookingSession.session_id, Kund.kund_number, Booking.id, FamilyMember.member_number)
             .execution_options(**_STREAM)
         ):
             s = by_id[sid]
-            sa.add([sid, s.event_date, s.slot, bn, kn, mn, name, rst, "YES" if at else "NO", at, src])
+            zn, sec = zone_sector(kn)
+            sa.add([sid, s.event_date, s.slot, bn, zn, sec, kn, mn, name, rst, "YES" if at else "NO", at, src,
+                    scan_name if at else None, scan_email if at else None])
 
         # 5. Kund Allocation
         ka = _Sheet(
             wb, "Kund Allocation",
-            ["Session", "Date", "Slot", "Kund", "Kund active", "Capacity", "Reserved", "Remaining", "Utilisation %",
+            ["Session", "Date", "Slot", "Zone", "Sector", "Kund", "Kund active", "Capacity", "Reserved", "Remaining", "Utilisation %",
              "Families (booking:members)"],
-            [8, 11, 9, 7, 10, 9, 9, 10, 12, 50],
+            [8, 11, 9, 12, 7, 7, 10, 9, 9, 10, 12, 50],
         )
         fams: dict[tuple[int, int], list[str]] = {}
         for sid, kid, bn, mc in db.execute(
@@ -311,7 +326,7 @@ class ReportingService:
         ):
             s = by_id[ksc.session_id]
             ka.add(
-                [ksc.session_id, s.event_date, s.slot, kn, "YES" if active else "NO", ksc.capacity,
+                [ksc.session_id, s.event_date, s.slot, *zone_sector(kn), kn, "YES" if active else "NO", ksc.capacity,
                  ksc.reserved_count, ksc.capacity - ksc.reserved_count,
                  round(100 * ksc.reserved_count / ksc.capacity, 1), ", ".join(fams.get((ksc.session_id, ksc.kund_id), []))]
             )

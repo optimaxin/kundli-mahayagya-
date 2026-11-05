@@ -8,7 +8,7 @@ import { Btn, Mandala, Om } from '../components/ui.jsx'
 import Scanner from '../components/Scanner.jsx'
 import { Area, Columns, Donut, HBars, Heat, PAL, StackedBars } from '../components/charts.jsx'
 import {
-  EVENT, ZONES, addStaff, analytics, currentAuth, describeError, exportBookings, fmtDate, kundFamilies,
+  EVENT, ZONES, kundLabel, cancelBooking, addStaff, analytics, currentAuth, describeError, exportBookings, fmtDate, kundFamilies,
   kundMap, signIn, logout, markEntered, removeStaff, activateStaff, resetStaffPassword, generateAndDownloadReport,
   searchBookings, slotOf,
   slotStats, slotWindow, staffList, toggleBlock, updateStaff, usePoll, useSlots, zoneRange,
@@ -244,6 +244,10 @@ function Bookings() {
     if (!confirm(t(`Mark ${left} member(s) of ${b.id} as entered? This cannot be undone.`, `${b.id} के ${left} सदस्यों का प्रवेश दर्ज करें? इसे वापस नहीं लिया जा सकता।`))) return
     try { await markEntered(b.id, s.date, s.session); reload() } catch (x) { alert(describeError(x, t)) }
   }
+  const remove = async (b) => {
+    if (!confirm(t(`Cancel ALL sessions of ${b.id} (${b.coordinator.name}, ${b.members.length} members)? Their seats will be released and the QR pass stops working. This cannot be undone.`, `${b.id} (${b.coordinator.name}, ${b.members.length} सदस्य) के सभी सत्र रद्द करें? उनके आसन खाली हो जाएँगे और QR पास बंद हो जाएगा। इसे वापस नहीं लिया जा सकता।`))) return
+    try { await cancelBooking(b.id); reload() } catch (x) { alert(describeError(x, t)) }
+  }
   return (
     <>
       <H sub={res ? `${nf(res.total)} ${t('families match', 'परिवार मिले')}` : ''} right={<div className="flex items-center gap-2">{note && <span className="text-xs text-slate-500">{note}</span>}<Btn variant="ghost" onClick={csv} className="min-h-10 px-4 text-sm"><Download size={16} />{t('Export CSV', 'CSV निकालें')}</Btn></div>}>{t('Bookings', 'पंजीकरण')}</H>
@@ -277,11 +281,12 @@ function Bookings() {
                     const canMark = s.status === 'CONFIRMED' && !complete && Date.now() >= slotWindow(s.date, s.session)[0]
                     return (
                       <button key={s.date + s.session} disabled={!canMark} onClick={() => enter(b, s)} className={`mb-1.5 flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm font-medium transition ${s.status === 'CANCELLED' ? 'border-red-200 bg-red-50 text-red-700' : s.attended ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white enabled:hover:bg-slate-50'}`}>
-                        <span>{fmtDate(s.date, lang)} · {t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)} · {t('Kund', 'कुंड')} #{s.kund}</span>
+                        <span>{fmtDate(s.date, lang)} · {t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)} · {kundLabel(s.kund, t)}</span>
                         {s.status === 'CANCELLED' ? <span className="text-xs">{t('Cancelled', 'रद्द')}</span> : s.attended ? <span className="flex items-center gap-1 text-xs"><Check size={14} />{s.checkedIn}/{b.members.length} · {new Date(s.attendedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}{s.by ? ` · ${s.by}` : ''}</span> : <span className="text-xs text-slate-400">{t('Not entered', 'प्रवेश नहीं')}</span>}
                       </button>
                     )
                   })}
+                  {b.status !== 'CANCELLED' && b.slots.some((s) => s.status !== 'CANCELLED') && <Btn variant="ghost" className="mt-2 w-full text-sm !text-red-700" onClick={() => remove(b)}><Trash2 size={16} />{t('Cancel / delete this booking', 'यह बुकिंग रद्द करें')}</Btn>}
                 </div>
               </div>
             )}

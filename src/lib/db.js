@@ -26,6 +26,10 @@ export const ZONES = [
 const PER_ZONE = Math.ceil(EVENT.kunds / EVENT.zones)
 export const zoneOf = (k) => Math.min(EVENT.zones - 1, Math.floor((k - 1) / PER_ZONE))
 export const zoneRange = (z) => [z * PER_ZONE + 1, Math.min(EVENT.kunds, (z + 1) * PER_ZONE)]
+// 11 zones x 5 sectors: sectors 1-4 hold 39 kunds, sector 5 holds the rest of the zone (40; the last zone is 5 short of 2151).
+export const sectorOf = (k) => { const o = (k - 1) % PER_ZONE; return o >= 156 ? 4 : Math.floor(o / 39) }
+// "Zone Brahma · Sector 2 · Kund #45" for tickets, scanner and admin lists. `t` is the useLang translator.
+export const kundLabel = (k, t) => { const z = ZONES[zoneOf(k)]; return `${t('Zone', 'क्षेत्र')} ${t(z[0], z[1])} · ${t('Sector', 'सेक्टर')} ${sectorOf(k) + 1} · ${t('Kund', 'कुंड')} #${k}` }
 
 // ------------------------------------------------------------------ HTTP
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '')
@@ -354,6 +358,11 @@ export async function exportBookings(filters, onProgress, cap = 20000) {
 // Mark every not-yet-entered member of a reservation as entered (organiser action, audited, cannot be undone).
 export async function markEntered(bookingId, date, session, memberNumbers) {
   return (await request(`/bookings/${encodeURIComponent(bookingId)}/checkin`, { method: 'POST', auth: 'admin', body: { session_id: slotId(date, session), member_numbers: memberNumbers || null } })).data
+}
+
+// Cancels every session of the booking and frees its seats (server is idempotent).
+export async function cancelBooking(bookingId, reason = 'Cancelled by organiser') {
+  return (await request(`/bookings/${encodeURIComponent(bookingId)}/cancel`, { method: 'POST', auth: 'admin', body: { reason } })).data
 }
 
 export async function kundMap(date, session) {

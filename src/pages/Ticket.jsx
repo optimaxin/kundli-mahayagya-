@@ -5,7 +5,7 @@ import QRCode from 'qrcode'
 import { CheckCircle2, Download, Flame, Clock, MapPin, Search, Sunrise, Sunset, Users, Printer, Share2 } from 'lucide-react'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Mandala, Om } from '../components/ui.jsx'
-import { EVENT, describeError, getBooking, qrPayload, slotWindow, fmtDate, fmtTime } from '../lib/db.js'
+import { EVENT, kundLabel, describeError, getBooking, qrPayload, slotWindow, fmtDate, fmtTime } from '../lib/db.js'
 
 export default function Ticket() {
   const { id } = useParams() // the pass token (kept in the URL hash, never sent to the server in a URL)
@@ -124,7 +124,7 @@ export default function Ticket() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 text-sm font-bold text-maroon-900">{s.session === 'morning' ? <Sunrise size={15} /> : <Sunset size={15} />}{t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)}<span className="font-medium text-stone-500">· {fmtTime(EVENT.sessions[s.session].start)}–{fmtTime(EVENT.sessions[s.session].end)}</span></div>
-                      <div className="mt-0.5 text-xs text-stone-600">{t('Kund', 'कुंड')} <b className="text-maroon-800">#{s.kund}</b></div>
+                      <div className="mt-0.5 text-xs text-stone-600"><b className="text-maroon-800">{kundLabel(s.kund, t)}</b></div>
                     </div>
                     <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${cls}`}>{label}</span>
                   </div>

@@ -57,7 +57,7 @@ export default function Admin() {
   const tabs = [
     ['overview', t('Dashboard', 'डैशबोर्ड'), LayoutDashboard], ['bookings', t('Bookings', 'पंजीकरण'), List],
     ['scan', t('Scanner', 'स्कैनर'), ScanLine], ['map', t('Kund map', 'कुंड मानचित्र'), Grid3x3],
-    ...(isAdmin ? [['staff', t('Volunteers', 'स्वयंसेवक'), UserCog]] : []), ['settings', t('Reports', 'रिपोर्ट'), Settings],
+    ...(isAdmin ? [['staff', t('Volunteers', 'स्वयंसेवक'), UserCog], ['settings', t('Reports', 'रिपोर्ट'), Settings]] : []),
   ]
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-slate-100 text-slate-800 md:grid md:grid-cols-[236px_1fr]">
@@ -79,12 +79,12 @@ export default function Admin() {
           <Link to="/" className="flex items-center gap-1.5 text-xs font-bold text-slate-500"><Home size={15} />{t('Public site', 'मुख्य साइट')}</Link>
           <button onClick={signOut} className="flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 active:scale-95"><LogOut size={16} />{t('Logout', 'लॉगआउट')}</button>
         </div>
-        {tab === 'overview' && <Overview />}
+        {tab === 'overview' && <Overview canExport={isAdmin} />}
         {tab === 'bookings' && <Bookings />}
         {tab === 'scan' && <AdminScanner />}
         {tab === 'map' && <KundMap />}
         {tab === 'staff' && isAdmin && <Volunteers />}
-        {tab === 'settings' && <Reports />}
+        {tab === 'settings' && isAdmin && <Reports />}
       </main>
     </div>
   )
@@ -125,7 +125,7 @@ function Kpi({ icon: Icon, label, value, sub, color, bar }) {
   )
 }
 
-function Overview() {
+function Overview({ canExport = false }) {
   const { t, lang } = useLang()
   const [a, , error] = usePoll(analytics, 10000)
   if (!a) return <><H>{t('Dashboard', 'डैशबोर्ड')}</H><ErrorNote error={error} /><Loading /></>
@@ -135,7 +135,7 @@ function Overview() {
   const gSum = a.gender.male + a.gender.female + a.gender.other || 1
   return (
     <>
-      <H sub={`${t('14–21 December 2026 · Agra', '14–21 दिसंबर 2026 · आगरा')}`} right={<div className="flex flex-wrap items-start gap-3"><span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700"><span className="size-2 animate-pulse rounded-full bg-emerald-500" />{t('Live · updates every 10s', 'लाइव · हर 10 सेकंड')}</span><ExcelReportButton variant="maroon" /></div>}>{t('Dashboard', 'डैशबोर्ड')}</H>
+      <H sub={`${t('14–21 December 2026 · Agra', '14–21 दिसंबर 2026 · आगरा')}`} right={<div className="flex flex-wrap items-start gap-3"><span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700"><span className="size-2 animate-pulse rounded-full bg-emerald-500" />{t('Live · updates every 10s', 'लाइव · हर 10 सेकंड')}</span>{canExport && <ExcelReportButton variant="maroon" />}</div>}>{t('Dashboard', 'डैशबोर्ड')}</H>
       <ErrorNote error={error} />
       {a.families === 0 && <div className="mb-5 rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500">{t('No bookings yet.', 'अभी कोई पंजीकरण नहीं।')}</div>}
 

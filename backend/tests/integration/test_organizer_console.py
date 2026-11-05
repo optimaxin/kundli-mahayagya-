@@ -298,9 +298,38 @@ def test_daily_report_file_name(client, admin_token: str) -> None:  # type: igno
     assert 'filename="Mahayagya_Daily_Report_20261215.xlsx"' in dl.headers["content-disposition"]
 
 
-def test_scanner_cannot_create_or_download_reports(client, admin_token: str) -> None:  # type: ignore[no-untyped-def]
-    _, scanner = make_staff("SCANNER", session_id=1)
-    assert client.post("/api/v1/reports/exports", json={"report_type": "FINAL"}, headers=auth(scanner)).status_code == 403
+@pytest.mark.parametrize("role", ["SUPERVISOR", "SCANNER"])
+def test_reports_are_admin_only(client, db: Session, admin_token: str, role: str) -> None:  # type: ignore[no-untyped-def]
+    """Every /reports endpoint returns 403 for SUPERVISOR and SCANNER, 401 without a token."""
+    _, other = make_staff(role, session_id=1 if role == "SCANNER" else None)
     job = client.post("/api/v1/reports/exports", json={"report_type": "FINAL"}, headers=auth(admin_token)).json()["data"]
-    assert client.get(f"/api/v1/reports/exports/{job['id']}/download", headers=auth(scanner)).status_code == 403
-    assert client.get(f"/api/v1/reports/exports/{job['id']}/download").status_code == 401
+    daily = client.post("/api/v1/reports/exports", json={"report_type": "DAILY", "report_date": "2026-12-14"},
+                        headers=auth(admin_token)).json()["data"]
+    calls = [
+        ("post", "/api/v1/reports/exports", {"report_type": "FINAL"}),
+        ("post", "/api/v1/reports/exports", {"report_type": "DAILY", "report_date": "2026-12-14"}),
+        ("get", f"/api/v1/reports/exports/{job['id']}", None),
+        ("get", f"/api/v1/reports/exports/{job['id']}/download", None),
+        ("get", f"/api/v1/reports/exports/{daily['id']}/download", None),
+        ("get", "/api/v1/reports/summary", None),
+    ]
+    jobs_before = db.execute(text("SELECT count(*) FROM report_jobs")).scalar()
+    for method, path, body in calls:
+        kwargs = {"json": body} if body else {}
+        r = getattr(client, method)(path, headers=auth(other), **kwargs)
+        assert r.status_code == 403, (role, path)
+        assert r.json()["error"]["code"] == "FORBIDDEN"
+        assert getattr(client, method)(path, **kwargs).status_code == 401, path
+    # the forbidden attempts created no report jobs; the admin can still read the job
+    assert db.execute(text("SELECT count(*) FROM report_jobs")).scalar() == jobs_before
+    assert client.get(f"/api/v1/reports/exports/{job['id']}", headers=auth(admin_token)).status_code == 200
+
+
+def test_admin_downloads_full_and_daily_reports(client, admin_token: str) -> None:  # type: ignore[no-untyped-def]
+    register_ok(client, members=2, sessions=[1])
+    for body, name in [({"report_type": "FINAL"}, "Mahayagya_Registration_Report_"),
+                       ({"report_type": "DAILY", "report_date": "2026-12-14"}, "Mahayagya_Daily_Report_20261214")]:
+        status, dl = export_and_download(client, admin_token, **body)
+        assert dl.status_code == 200 and status["file_name"].startswith(name)
+        assert dl.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        assert load_workbook(io.BytesIO(dl.content), read_only=True).sheetnames == SHEETS

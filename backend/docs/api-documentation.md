@@ -54,7 +54,8 @@ last 30 min; scanner tokens last 8 h.
 | `GET /bookings…`, `GET /family-members`, `POST /bookings/{bn}/cancel` | | | ✓ | ✓ |
 | `GET /sessions/{id}`, `/sessions/{id}/kunds`, `/kunds/{n}`, `GET /checkins` | | | ✓ | ✓ |
 | `POST /qr/{bn}/regenerate`, `POST /qr/{bn}/revoke` | | | ✓ | ✓ |
-| `GET /admin/dashboard`, `GET /admin/analytics`, `/reports/*` | | | ✓ | ✓ |
+| `GET /admin/dashboard`, `GET /admin/analytics` | | | ✓ | ✓ |
+| `/reports/*` (Excel exports, downloads, summary): personal data of every family | | | | ✓ |
 | `GET /sessions/{id}/kund-map`, `POST /sessions/{id}/kunds/{n}/block`, `POST /bookings/{bn}/checkin` | | | ✓ | ✓ |
 | `GET /offline/snapshot/{id}`, `POST /offline/sync/checkins` | | | ✓ | ✓ |
 | `PATCH /sessions/{id}`, `/admin/users*`, `/admin/audit-logs`, `/admin/integrity`, `/admin/maintenance/*` | | | | ✓ |
@@ -221,7 +222,7 @@ them uniformly. 401 and 403 are used only for authentication and permission fail
   SCANNER/SUPERVISOR account (12+ chars, upper, lower, digit). Revokes all of that user's tokens and
   clears any login lockout; audited as `STAFF_PASSWORD_RESET` (password never logged). Refused for
   ADMIN accounts (`403 ADMIN_PASSWORD_RESET`) and for your own account (`422 OWN_ACCOUNT`).
-* `POST /reports/exports` `{report_type: "DAILY"|"FINAL", report_date?}` returns 202 with a
+* **ADMIN only** (SUPERVISOR and SCANNER get 403): `POST /reports/exports` `{report_type: "DAILY"|"FINAL", report_date?}` returns 202 with a
   job. Then call `GET /reports/exports/{id}`, and `GET /reports/exports/{id}/download` once
   it is `COMPLETED`. The download is `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
   named `Mahayagya_Registration_Report_YYYYMMDD.xlsx` (FINAL; generation date in IST) or

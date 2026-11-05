@@ -228,8 +228,12 @@ them uniformly. 401 and 403 are used only for authentication and permission fail
   named `Mahayagya_Registration_Report_YYYYMMDD.xlsx` (FINAL; generation date in IST) or
   `Mahayagya_Daily_Report_YYYYMMDD.xlsx` (DAILY; the event date). The `.xlsx` has the sheets
   Dashboard, Family Bookings, Family Members, Session Attendance, Kund Allocation, Cancellations and
-  No Shows. Report files live on the server's local disk: after a Render restart, `download` returns
-  `410 REPORT_EXPIRED`. Generate again.
+  No Shows. Report files live on the server's local disk and are deleted after 1 hour; after a Render
+  restart or once deleted, `download` returns `410 REPORT_EXPIRED`. Generate again. A job still
+  `PENDING`/`RUNNING` 15 minutes after it was created (e.g. the server restarted mid-run) is reported
+  as `FAILED` with `error: "ABANDONED"`. A `COMPLETED` job's `summary.timings` holds the generation
+  time per stage, the file size and the row count per sheet (no personal data). See
+  [report-performance.md](report-performance.md).
 
 Staff accounts are created only by an ADMIN through this API, or with the
 `python -m scripts.create_admin` CLI for the very first ADMIN. There is no public registration

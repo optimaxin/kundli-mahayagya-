@@ -54,7 +54,8 @@ last 30 min; scanner tokens last 8 h.
 | `GET /bookings…`, `GET /family-members`, `POST /bookings/{bn}/cancel` | | | ✓ | ✓ |
 | `GET /sessions/{id}`, `/sessions/{id}/kunds`, `/kunds/{n}`, `GET /checkins` | | | ✓ | ✓ |
 | `POST /qr/{bn}/regenerate`, `POST /qr/{bn}/revoke` | | | ✓ | ✓ |
-| `GET /admin/dashboard`, `GET /admin/analytics`, `/reports/*` | | | ✓ | ✓ |
+| `GET /admin/dashboard`, `GET /admin/analytics` | | | ✓ | ✓ |
+| `/reports/*` (Excel exports, downloads, summary): personal data of every family | | | | ✓ |
 | `GET /sessions/{id}/kund-map`, `POST /sessions/{id}/kunds/{n}/block`, `POST /bookings/{bn}/checkin` | | | ✓ | ✓ |
 | `GET /offline/snapshot/{id}`, `POST /offline/sync/checkins` | | | ✓ | ✓ |
 | `PATCH /sessions/{id}`, `/admin/users*`, `/admin/audit-logs`, `/admin/integrity`, `/admin/maintenance/*` | | | | ✓ |
@@ -213,12 +214,26 @@ them uniformly. 401 and 403 are used only for authentication and permission fail
   (with check-in counts and who checked in) and the full mobile number. Audited.
 * `GET /admin/integrity`: reconciliation report (`ok` should always be `true`).
 * `GET /admin/audit-logs?action=&entity_type=&entity_id=&actor_id=`.
-* `GET|POST /admin/users`, `PATCH /admin/users/{id}`: staff accounts and scanner session
-  assignment.
-* `POST /reports/exports` `{report_type: "DAILY"|"FINAL", report_date?}` returns 202 with a
+* `GET|POST /admin/users`, `PATCH /admin/users/{id}` (ADMIN): staff accounts and scanner session
+  assignment. `PATCH` accepts `full_name`, `is_active` (activate/deactivate; deactivation revokes
+  tokens), `assigned_session_id` (SCANNER only, 1-16) and `clear_assigned_session`. A role cannot be
+  changed (422). You cannot deactivate yourself.
+* `POST /admin/users/{id}/reset-password` `{new_password}` (ADMIN): sets a new password for a
+  SCANNER/SUPERVISOR account (12+ chars, upper, lower, digit). Revokes all of that user's tokens and
+  clears any login lockout; audited as `STAFF_PASSWORD_RESET` (password never logged). Refused for
+  ADMIN accounts (`403 ADMIN_PASSWORD_RESET`) and for your own account (`422 OWN_ACCOUNT`).
+* **ADMIN only** (SUPERVISOR and SCANNER get 403): `POST /reports/exports` `{report_type: "DAILY"|"FINAL", report_date?}` returns 202 with a
   job. Then call `GET /reports/exports/{id}`, and `GET /reports/exports/{id}/download` once
-  it is `COMPLETED`. The `.xlsx` has the sheets Dashboard, Family Bookings, Family Members,
-  Session Attendance, Kund Allocation, Cancellations and No Shows.
+  it is `COMPLETED`. The download is `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+  named `Mahayagya_Registration_Report_YYYYMMDD.xlsx` (FINAL; generation date in IST) or
+  `Mahayagya_Daily_Report_YYYYMMDD.xlsx` (DAILY; the event date). The `.xlsx` has the sheets
+  Dashboard, Family Bookings, Family Members, Session Attendance, Kund Allocation, Cancellations and
+  No Shows. Report files live on the server's local disk: after a Render restart, `download` returns
+  `410 REPORT_EXPIRED`. Generate again.
+
+Staff accounts are created only by an ADMIN through this API, or with the
+`python -m scripts.create_admin` CLI for the very first ADMIN. There is no public registration
+endpoint for staff.
 * `GET /reports/summary?report_date=`: the same session-wise numbers as JSON.
 
 ### Offline sync

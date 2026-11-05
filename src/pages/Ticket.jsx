@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import QRCode from 'qrcode'
-import { CheckCircle2, Download, Flame, Clock, MapPin, Search, Sunrise, Sunset, Users, Printer, Share2, Gift, Sparkles, X } from 'lucide-react'
+import { CheckCircle2, Download, Flame, Clock, MapPin, Search, Sunrise, Sunset, Users, Printer, Share2 } from 'lucide-react'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Mandala, Om } from '../components/ui.jsx'
-import Fireworks from '../components/Fireworks.jsx'
 import { EVENT, describeError, getBooking, qrPayload, slotWindow, fmtDate, fmtTime } from '../lib/db.js'
 
 export default function Ticket() {
@@ -23,9 +22,6 @@ export default function Ticket() {
   const [qr, setQr] = useState('')
   const [busy, setBusy] = useState(false)
   const ref = useRef(null)
-  const [gift, setGift] = useState(false)
-  useEffect(() => { if (!b || !sp.get('new')) return; const x = setTimeout(() => setGift(true), 4500); return () => clearTimeout(x) }, [b?.id])
-
   const pdfRef = useRef(null)
   const auto = useRef(false)
   // auto-download the pass once, right after registration (button stays available if the browser blocks it)
@@ -148,45 +144,7 @@ export default function Ticket() {
           </div>
         </div>
 
-        <GiftBanner className="mt-6" />
       </div>
-      <AnimatePresence>{gift && <GiftPopup onClose={() => setGift(false)} />}</AnimatePresence>
     </div>
-  )
-}
-
-const KUNDALI_URL = 'https://tredevaastro.com/'
-
-function GiftBanner({ className = '' }) {
-  const { t } = useLang()
-  return (
-    <a href={KUNDALI_URL} target="_blank" rel="noopener noreferrer" className={`group flex items-center gap-4 overflow-hidden rounded-2xl bg-gradient-to-r from-maroon-800 to-maroon-950 p-4 text-white shadow-lg ${className}`}>
-      <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-gold-300 to-saffron-500 text-maroon-950"><Gift size={28} /></span>
-      <span className="min-w-0 flex-1"><span className="block font-bold text-gold-300">{t('A gift for you: Free Kundali', 'आपके लिए उपहार: निःशुल्क कुंडली')}</span><span className="block text-sm text-maroon-200">{t('Generate your Kundali free at Tredeva Astro', 'त्रिदेव एस्ट्रो पर अपनी कुंडली निःशुल्क बनाएँ')}</span></span>
-      <span className="rounded-full bg-saffron-500 px-4 py-2 text-sm font-bold transition group-hover:brightness-110">{t('Open', 'खोलें')}</span>
-    </a>
-  )
-}
-
-function GiftPopup({ onClose }) {
-  const { t } = useLang()
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 grid place-items-center bg-maroon-950/80 p-4 backdrop-blur-sm" onClick={onClose}>
-      <Fireworks />
-      <motion.div initial={{ scale: .8, y: 30, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: .9, opacity: 0 }} transition={{ type: 'spring', damping: 18 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-sm overflow-hidden rounded-[2rem] bg-cream text-center shadow-2xl ring-1 ring-gold-400">
-        <div className="relative bg-gradient-to-br from-maroon-800 to-maroon-950 px-6 pb-8 pt-9">
-          <Mandala className="spin-slow absolute -right-16 -top-16 w-60 opacity-25" rings={3} />
-          <button onClick={onClose} aria-label="close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"><X size={18} /></button>
-          <motion.div animate={{ rotate: [0, -8, 8, -4, 0] }} transition={{ repeat: Infinity, duration: 2.4 }} className="relative mx-auto grid size-20 place-items-center rounded-3xl bg-gradient-to-br from-gold-300 to-saffron-500 text-maroon-950 shadow-xl"><Gift size={42} /></motion.div>
-          <div className="font-display relative mt-4 text-2xl gold-text">{t('A gift for you!', 'आपके लिए उपहार!')}</div>
-        </div>
-        <div className="p-6">
-          <p className="flex items-center justify-center gap-1.5 text-lg font-bold text-maroon-900"><Sparkles size={18} className="text-saffron-500" />{t('Generate your Kundali FREE', 'अपनी कुंडली बनाएँ निःशुल्क')}</p>
-          <p className="mt-1.5 text-sm text-stone-600">{t('Thank you for registering. Enjoy a complimentary Kundali from Tredeva Astro, our blessing to your family.', 'पंजीकरण के लिए धन्यवाद। त्रिदेव एस्ट्रो की ओर से निःशुल्क कुंडली, आपके परिवार को हमारा आशीर्वाद।')}</p>
-          <Btn as="a" href={KUNDALI_URL} target="_blank" rel="noopener noreferrer" onClick={onClose} className="mt-5 w-full min-h-14 text-base"><Gift size={19} />{t('Get my free Kundali', 'मेरी निःशुल्क कुंडली पाएँ')}</Btn>
-          <button onClick={onClose} className="mt-3 text-sm font-semibold text-stone-500 hover:text-stone-700">{t('Maybe later', 'बाद में')}</button>
-        </div>
-      </motion.div>
-    </motion.div>
   )
 }

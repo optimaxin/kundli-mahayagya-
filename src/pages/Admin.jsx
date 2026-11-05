@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { LayoutDashboard, List, ScanLine, Grid3x3, Settings, LogOut, Users, Armchair, DoorOpen, Percent, Download, Search, Check, Lock, Trash2, ChevronDown, Ban, UserCog, UserPlus, TrendingUp, Home, FileSpreadsheet, Mail } from 'lucide-react'
+import { LayoutDashboard, List, ScanLine, Grid3x3, Settings, LogOut, Users, Armchair, DoorOpen, Percent, Download, Search, Check, Lock, Trash2, ChevronDown, Ban, UserCog, UserPlus, TrendingUp, Home, FileSpreadsheet, Mail, KeyRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Staff from './Staff.jsx'
 import { useLang } from '../lib/lang.jsx'
@@ -8,8 +8,9 @@ import { Btn, Mandala, Om } from '../components/ui.jsx'
 import Scanner from '../components/Scanner.jsx'
 import { Area, Columns, Donut, HBars, Heat, PAL, StackedBars } from '../components/charts.jsx'
 import {
-  EVENT, ZONES, addStaff, analytics, currentAuth, describeError, downloadReport, exportBookings, fmtDate, kundFamilies,
-  kundMap, signIn, logout, markEntered, removeStaff, reportStatus, requestReport, searchBookings, slotOf,
+  EVENT, ZONES, addStaff, analytics, currentAuth, describeError, exportBookings, fmtDate, kundFamilies,
+  kundMap, signIn, logout, markEntered, removeStaff, activateStaff, resetStaffPassword, generateAndDownloadReport,
+  searchBookings, slotOf,
   slotStats, slotWindow, staffList, toggleBlock, updateStaff, usePoll, useSlots, zoneRange,
 } from '../lib/db.js'
 
@@ -54,7 +55,7 @@ export default function Admin() {
         <input type="email" autoFocus autoComplete="username" value={email} onChange={(e) => { setEmail(e.target.value); setErr('') }} placeholder={t('Email', 'ईमेल')} className="mt-6 min-h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-saffron-500 focus:ring-4 focus:ring-saffron-100" />
         <input type="password" autoComplete="current-password" value={pw} onChange={(e) => { setPw(e.target.value); setErr('') }} placeholder={t('Password', 'पासवर्ड')} className={`mt-3 min-h-12 w-full rounded-xl border px-4 outline-none focus:ring-4 ${err ? 'border-red-400 focus:ring-red-100' : 'border-slate-300 focus:border-saffron-500 focus:ring-saffron-100'}`} />
         {err && <p className="mt-1 text-xs font-semibold text-red-600">{err}</p>}
-        <Btn type="submit" variant="maroon" className="mt-4 w-full" disabled={busy || !email || !pw}>{t('Enter', 'प्रवेश')}</Btn>
+        <Btn type="submit" variant="maroon" className="mt-4 w-full" disabled={busy || !email || !pw}>{busy ? t('Checking…', 'जाँच हो रही है…') : t('Enter', 'प्रवेश')}</Btn>
       </motion.form>
     </div>
   )
@@ -63,7 +64,7 @@ export default function Admin() {
   const tabs = [
     ['overview', t('Dashboard', 'डैशबोर्ड'), LayoutDashboard], ['bookings', t('Bookings', 'पंजीकरण'), List],
     ['scan', t('Scanner', 'स्कैनर'), ScanLine], ['map', t('Kund map', 'कुंड मानचित्र'), Grid3x3],
-    ...(isAdmin ? [['staff', t('Volunteers', 'स्वयंसेवक'), UserCog]] : []), ['settings', t('Reports', 'रिपोर्ट'), Settings],
+    ...(isAdmin ? [['staff', t('Volunteers', 'स्वयंसेवक'), UserCog], ['settings', t('Reports', 'रिपोर्ट'), Settings]] : []),
   ]
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-slate-100 text-slate-800 md:grid md:grid-cols-[236px_1fr]">
@@ -85,12 +86,12 @@ export default function Admin() {
           <Link to="/" className="flex items-center gap-1.5 text-xs font-bold text-slate-500"><Home size={15} />{t('Public site', 'मुख्य साइट')}</Link>
           <button onClick={signOut} className="flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 active:scale-95"><LogOut size={16} />{t('Logout', 'लॉगआउट')}</button>
         </div>
-        {tab === 'overview' && <Overview />}
+        {tab === 'overview' && <Overview canExport={isAdmin} />}
         {tab === 'bookings' && <Bookings />}
         {tab === 'scan' && <AdminScanner />}
         {tab === 'map' && <KundMap />}
         {tab === 'staff' && isAdmin && <Volunteers />}
-        {tab === 'settings' && <Reports />}
+        {tab === 'settings' && isAdmin && <Reports />}
       </main>
     </div>
   )
@@ -131,7 +132,7 @@ function Kpi({ icon: Icon, label, value, sub, color, bar }) {
   )
 }
 
-function Overview() {
+function Overview({ canExport = false }) {
   const { t, lang } = useLang()
   const [a, , error] = usePoll(analytics, 10000)
   if (!a) return <><H>{t('Dashboard', 'डैशबोर्ड')}</H><ErrorNote error={error} /><Loading /></>
@@ -141,7 +142,7 @@ function Overview() {
   const gSum = a.gender.male + a.gender.female + a.gender.other || 1
   return (
     <>
-      <H sub={`${t('14–21 December 2026 · Agra', '14–21 दिसंबर 2026 · आगरा')}`} right={<span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700"><span className="size-2 animate-pulse rounded-full bg-emerald-500" />{t('Live · updates every 10s', 'लाइव · हर 10 सेकंड')}</span>}>{t('Dashboard', 'डैशबोर्ड')}</H>
+      <H sub={`${t('14–21 December 2026 · Agra', '14–21 दिसंबर 2026 · आगरा')}`} right={<div className="flex flex-wrap items-start gap-3"><span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700"><span className="size-2 animate-pulse rounded-full bg-emerald-500" />{t('Live · updates every 10s', 'लाइव · हर 10 सेकंड')}</span>{canExport && <ExcelReportButton variant="maroon" />}</div>}>{t('Dashboard', 'डैशबोर्ड')}</H>
       <ErrorNote error={error} />
       {a.families === 0 && <div className="mb-5 rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500">{t('No bookings yet.', 'अभी कोई पंजीकरण नहीं।')}</div>}
 
@@ -364,43 +365,82 @@ function Volunteers() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
+  const [role, setRole] = useState('SCANNER')
   const [sid, setSid] = useState(currentSessionId)
   const [msg, setMsg] = useState('')
+  const [note, setNote] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [resetFor, setResetFor] = useState(null)
+  const [resetPw, setResetPw] = useState('')
   const [list, reload, error] = usePoll(staffList, 0)
   const [a] = usePoll(analytics, 30000)
   const done = Object.fromEntries(a?.staff || [])
-  const strong = pw.length >= 12 && /[a-z]/.test(pw) && /[A-Z]/.test(pw) && /\d/.test(pw)
+  const isStrong = (p) => p.length >= 12 && /[a-z]/.test(p) && /[A-Z]/.test(p) && /\d/.test(p)
   const add = async (e) => {
-    e.preventDefault(); setMsg('')
-    try { await addStaff({ name: name.trim(), email: email.trim(), password: pw, sessionId: sid }); setName(''); setEmail(''); setPw(''); reload() } catch (x) { setMsg(describeError(x, t)) }
+    e.preventDefault(); setMsg(''); setNote(''); setAdding(true)
+    try {
+      await addStaff({ name: name.trim(), email: email.trim(), password: pw, sessionId: sid, role })
+      setName(''); setEmail(''); setPw('')
+      setNote(t('Account created. Share the email and password with the volunteer privately.', 'खाता बन गया। ईमेल व पासवर्ड स्वयंसेवक को निजी रूप से बताएँ।'))
+      reload()
+    } catch (x) { setMsg(describeError(x, t)) } finally { setAdding(false) }
   }
-  const act = async (fn) => { setMsg(''); try { await fn(); reload() } catch (x) { setMsg(describeError(x, t)) } }
-  const sessName = (id) => { if (!id) return t('No session', 'कोई सत्र नहीं'); const s = slotOf(id); return `${fmtDate(s.date, lang, { day: 'numeric', month: 'short' })} · ${t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)}` }
+  const act = async (fn, ok) => { setMsg(''); setNote(''); try { await fn(); if (ok) setNote(ok); reload() } catch (x) { setMsg(describeError(x, t)) } }
+  const doReset = (s) => act(async () => { await resetStaffPassword(s.id, resetPw); setResetFor(null); setResetPw('') },
+    t(`New password set for ${s.name}. They have been logged out everywhere.`, `${s.name} का नया पासवर्ड सेट हो गया। उन्हें सभी जगह से लॉगआउट कर दिया गया है।`))
+  const sessName = (id) => {
+    if (!id) return t('No session', 'कोई सत्र नहीं')
+    const s = slotOf(id)
+    return `${fmtDate(s.date, lang, { day: 'numeric', month: 'short' })} · ${t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)} (${EVENT.sessions[s.session].start}–${EVENT.sessions[s.session].end})`
+  }
+  const roleLabel = (r) => (r === 'SCANNER' ? t('Gate scanner', 'द्वार स्कैनर') : t('Supervisor', 'पर्यवेक्षक'))
+  const input = 'min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-saffron-500'
   return (
     <>
-      <H sub={t('Volunteers log in at /staff with their email and password, and can only scan for the session assigned here.', 'स्वयंसेवक /staff पर ईमेल व पासवर्ड से लॉगिन करते हैं और केवल यहाँ आवंटित सत्र हेतु स्कैन कर सकते हैं।')}>{t('Volunteers', 'स्वयंसेवक')}</H>
+      <H sub={t('Gate scanners log in at /staff and can only scan for the session assigned here. Supervisors use this console without volunteer or audit access.', 'द्वार स्कैनर /staff पर लॉगिन करते हैं और केवल यहाँ आवंटित सत्र हेतु स्कैन कर सकते हैं। पर्यवेक्षक इस कंसोल का उपयोग करते हैं (स्वयंसेवक व ऑडिट को छोड़कर)।')}>{t('Volunteers', 'स्वयंसेवक')}</H>
       <ErrorNote error={error} />
+      {msg && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{msg}</div>}
+      {note && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{note}</div>}
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Card title={t('Add volunteer', 'स्वयंसेवक जोड़ें')}>
           <form onSubmit={add} className="space-y-3">
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Name', 'नाम')} className="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-saffron-500" />
-            <div className="relative"><Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('Login email', 'लॉगिन ईमेल')} className="min-h-11 w-full rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-saffron-500" /></div>
-            <input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder={t('Password (12+ chars, Aa1)', 'पासवर्ड (12+ अक्षर, Aa1)')} className="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-saffron-500" />
-            <SessionPicker value={sid} onChange={setSid} />
-            <Btn type="submit" className="w-full" disabled={!name.trim() || !email.trim() || !strong}><UserPlus size={18} />{t('Add', 'जोड़ें')}</Btn>
-            {msg && <p className="text-xs font-semibold text-red-600">{msg}</p>}
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Name', 'नाम')} className={input} />
+            <div className="relative"><Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('Login email', 'लॉगिन ईमेल')} className={`${input} pl-9`} /></div>
+            <input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder={t('Initial password (12+ chars, Aa1)', 'प्रारंभिक पासवर्ड (12+ अक्षर, Aa1)')} className={input} />
+            {pw && !isStrong(pw) && <p className="text-xs text-slate-500">{t('At least 12 characters with upper-case, lower-case and a digit.', 'कम से कम 12 अक्षर, जिसमें बड़ा अक्षर, छोटा अक्षर व अंक हो।')}</p>}
+            <Sel value={role} onChange={(e) => setRole(e.target.value)}><option value="SCANNER">{roleLabel('SCANNER')}</option><option value="SUPERVISOR">{roleLabel('SUPERVISOR')}</option></Sel>
+            {role === 'SCANNER' && <SessionPicker value={sid} onChange={setSid} />}
+            <Btn type="submit" className="w-full" disabled={adding || !name.trim() || !email.trim() || !isStrong(pw)}><UserPlus size={18} />{adding ? t('Creating…', 'बन रहा है…') : t('Add', 'जोड़ें')}</Btn>
           </form>
         </Card>
-        <Card title={t('Volunteers', 'स्वयंसेवक')} sub={list ? `${list.filter((s) => s.active).length} ${t('active', 'सक्रिय')}` : ''}>
+        <Card title={t('Volunteer accounts', 'स्वयंसेवक खाते')} sub={list ? `${list.filter((s) => s.active).length} ${t('active', 'सक्रिय')} · ${list.length} ${t('total', 'कुल')}` : ''}>
           {!list && !error && <Loading />}
           <div className="divide-y divide-slate-100">
             {(list || []).map((s) => (
-              <div key={s.id} className={`flex flex-wrap items-center gap-3 py-3 ${s.active ? '' : 'opacity-50'}`}>
-                <span className="grid size-10 place-items-center rounded-full bg-maroon-50 font-bold text-maroon-800">{s.name[0]}</span>
-                <div className="min-w-0 flex-1"><div className="font-semibold">{s.name}{!s.active && <span className="ml-2 text-xs text-red-600">{t('removed', 'हटाया गया')}</span>}</div><div className="truncate text-xs text-slate-500">{s.email}</div></div>
-                {s.active && <Sel value={s.sessionId || ''} onChange={(e) => act(() => updateStaff(s.id, { assigned_session_id: Number(e.target.value) }))}>{!s.sessionId && <option value="">{sessName(null)}</option>}{SESSION_IDS.map((id) => <option key={id} value={id}>{sessName(id)}</option>)}</Sel>}
-                <div className="text-right"><div className="text-lg font-bold tabular-nums text-emerald-600">{done[s.name] || 0}</div><div className="text-[11px] text-slate-500">{t('entered', 'प्रवेश')}</div></div>
-                {s.active && <button onClick={() => confirm(t(`Remove ${s.name}? Their login stops working immediately.`, `${s.name} को हटाएँ? उनका लॉगिन तुरंत बंद हो जाएगा।`)) && act(() => removeStaff(s.id))} className="rounded-lg p-2 text-red-500 hover:bg-red-50" aria-label="remove"><Trash2 size={17} /></button>}
+              <div key={s.id} className="py-3">
+                <div className={`flex flex-wrap items-center gap-3 ${s.active ? '' : 'opacity-60'}`}>
+                  <span className="grid size-10 place-items-center rounded-full bg-maroon-50 font-bold text-maroon-800">{s.name[0]}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold">{s.name} <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{roleLabel(s.role)}</span>{!s.active && <span className="ml-1 rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-600">{t('Deactivated', 'निष्क्रिय')}</span>}</div>
+                    <div className="truncate text-xs text-slate-500">{s.email}</div>
+                  </div>
+                  {s.role === 'SCANNER' && (s.active
+                    ? <Sel value={s.sessionId || ''} onChange={(e) => act(() => updateStaff(s.id, { assigned_session_id: Number(e.target.value) }))}>{!s.sessionId && <option value="">{sessName(null)}</option>}{SESSION_IDS.map((id) => <option key={id} value={id}>{sessName(id)}</option>)}</Sel>
+                    : <span className="text-xs text-slate-500">{sessName(s.sessionId)}</span>)}
+                  <div className="text-right"><div className="text-lg font-bold tabular-nums text-emerald-600">{done[s.name] || 0}</div><div className="text-[11px] text-slate-500">{t('entered', 'प्रवेश')}</div></div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2 pl-[52px]">
+                  {s.active && <button onClick={() => { setResetFor(resetFor === s.id ? null : s.id); setResetPw('') }} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"><KeyRound size={14} />{t('Reset password', 'पासवर्ड बदलें')}</button>}
+                  {s.active
+                    ? <button onClick={() => confirm(t(`Deactivate ${s.name}? Their login stops working immediately.`, `${s.name} को निष्क्रिय करें? उनका लॉगिन तुरंत बंद हो जाएगा।`)) && act(() => removeStaff(s.id))} className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"><Ban size={14} />{t('Deactivate', 'निष्क्रिय करें')}</button>
+                    : <button onClick={() => act(() => activateStaff(s.id))} className="flex items-center gap-1 rounded-lg border border-emerald-200 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"><Check size={14} />{t('Activate', 'सक्रिय करें')}</button>}
+                </div>
+                {resetFor === s.id && (
+                  <form onSubmit={(e) => { e.preventDefault(); doReset(s) }} className="mt-2 flex flex-wrap gap-2 pl-[52px]">
+                    <input type="password" autoComplete="new-password" autoFocus value={resetPw} onChange={(e) => setResetPw(e.target.value)} placeholder={t('New password (12+ chars, Aa1)', 'नया पासवर्ड (12+ अक्षर, Aa1)')} className={`${input} max-w-xs`} />
+                    <Btn type="submit" className="min-h-11 px-4 text-sm" disabled={!isStrong(resetPw)}>{t('Set password', 'पासवर्ड सेट करें')}</Btn>
+                  </form>
+                )}
               </div>
             ))}
             {list && !list.length && <p className="py-4 text-sm text-slate-400">{t('No volunteers yet', 'अभी कोई स्वयंसेवक नहीं')}</p>}
@@ -411,39 +451,48 @@ function Volunteers() {
   )
 }
 
+// "Excel रिपोर्ट डाउनलोड करें": generates the 7-sheet workbook on the server and downloads it.
+function ExcelReportButton({ type = 'FINAL', date = null, label, variant, className = '' }) {
+  const { t } = useLang()
+  const [state, setState] = useState('idle')
+  const [err, setErr] = useState('')
+  const run = async () => {
+    setErr('')
+    try { await generateAndDownloadReport(type, date, setState); setState('done') } catch (x) { setErr(describeError(x, t)); setState('idle') }
+  }
+  const busy = state === 'generating' || state === 'downloading'
+  return (
+    <div className={`flex flex-col items-start gap-1 ${className}`}>
+      <Btn variant={variant} disabled={busy} onClick={run} className="min-h-11 px-4 text-sm">
+        <FileSpreadsheet size={18} />
+        {state === 'generating' ? t('Preparing report…', 'रिपोर्ट तैयार हो रही है…') : state === 'downloading' ? t('Downloading…', 'डाउनलोड हो रही है…') : label || t('Download Excel report', 'Excel रिपोर्ट डाउनलोड करें')}
+      </Btn>
+      {state === 'done' && <span className="text-xs font-semibold text-emerald-700">{t('Report downloaded', 'रिपोर्ट डाउनलोड हो गई')}</span>}
+      {err && <span className="text-xs font-semibold text-red-600">{err}</span>}
+    </div>
+  )
+}
+
 function Reports() {
   const { t, lang } = useLang()
   const [date, setDate] = useState(EVENT.dates[0])
-  const [msg, setMsg] = useState('')
-  const [busy, setBusy] = useState(false)
-  const run = async (type) => {
-    setBusy(true); setMsg(t('Generating report…', 'रिपोर्ट बन रही है…'))
-    try {
-      let job = await requestReport(type, type === 'DAILY' ? date : null)
-      for (let i = 0; i < 120 && (job.status === 'PENDING' || job.status === 'RUNNING'); i++) {
-        await new Promise((r) => setTimeout(r, 2000))
-        job = await reportStatus(job.id)
-      }
-      if (job.status !== 'COMPLETED') throw new Error(t('Report failed. Please try again.', 'रिपोर्ट नहीं बन पाई। पुनः प्रयास करें।'))
-      await downloadReport(job.id, job.file_name)
-      setMsg(t('Downloaded', 'डाउनलोड हो गई'))
-    } catch (x) { setMsg(x.code ? describeError(x, t) : x.message) } finally { setBusy(false) }
-  }
   return (
     <>
       <H>{t('Reports', 'रिपोर्ट')}</H>
       <Card className="max-w-2xl space-y-5">
         <div>
           <h2 className="font-bold">{t('Excel reports', 'एक्सेल रिपोर्ट')}</h2>
-          <p className="text-sm text-slate-500">{t('Dashboard, family bookings, members, session attendance, kund allocation, cancellations and no-shows (no-shows only for finished sessions).', 'डैशबोर्ड, परिवार, सदस्य, सत्र उपस्थिति, कुंड आवंटन, रद्दीकरण व अनुपस्थित (केवल समाप्त सत्रों हेतु)।')}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Btn disabled={busy} onClick={() => run('FINAL')}><FileSpreadsheet size={18} />{t('Full report', 'पूर्ण रिपोर्ट')}</Btn>
+          <p className="text-sm text-slate-500">{t('7 sheets: Dashboard, Family Bookings, Family Members, Session Attendance, Kund Allocation, Cancellations, No Shows (no-shows only for finished sessions).', '7 शीट: डैशबोर्ड, परिवार, सदस्य, सत्र उपस्थिति, कुंड आवंटन, रद्दीकरण व अनुपस्थित (केवल समाप्त सत्रों हेतु)।')}</p>
+          <div className="mt-4"><ExcelReportButton /></div>
+        </div>
+        <div className="border-t border-slate-100 pt-4">
+          <h2 className="font-bold">{t('Daily report', 'दैनिक रिपोर्ट')}</h2>
+          <div className="mt-3 flex flex-wrap items-start gap-2">
             <Sel value={date} onChange={(e) => setDate(e.target.value)}>{EVENT.dates.map((d) => <option key={d} value={d}>{fmtDate(d, lang)}</option>)}</Sel>
-            <Btn variant="ghost" disabled={busy} onClick={() => run('DAILY')}><Download size={18} />{t('Daily report', 'दैनिक रिपोर्ट')}</Btn>
+            <ExcelReportButton key={date} type="DAILY" date={date} variant="ghost" label={t('Download daily report', 'दैनिक रिपोर्ट डाउनलोड करें')} />
           </div>
         </div>
         <p className="border-t border-slate-100 pt-4 text-xs text-slate-500">{t('All data is stored on the server. Exports are not backups; the database is backed up separately.', 'सारा डेटा सर्वर पर सुरक्षित है। निर्यात बैकअप नहीं हैं; डेटाबेस का बैकअप अलग से होता है।')}</p>
-        {msg && <p className="text-sm font-bold text-emerald-700">{msg}</p>}
       </Card>
     </>
   )

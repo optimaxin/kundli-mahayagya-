@@ -5,7 +5,8 @@ Permission matrix (see docs/api-documentation.md):
 =====================================  =====  ==========  =======
 Capability                             ADMIN  SUPERVISOR  SCANNER
 =====================================  =====  ==========  =======
-Dashboard / capacity / reports          yes      yes        no
+Dashboard / capacity                    yes      yes        no
+Excel reports (/reports/*)              yes      no         no
 Booking search by booking number        yes      yes        no
 Booking search by mobile (audited)      yes      yes        no
 Cancel bookings                         yes      yes        no

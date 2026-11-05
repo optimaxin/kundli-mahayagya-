@@ -9,13 +9,14 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.permissions import request_context, require_staff
+from app.core.permissions import request_context, require_admin
 from app.models import AdminUser
 from app.models.enums import ReportType
 from app.schemas.common import ok
 from app.services.audit_service import audit
-from app.services.reporting_service import ReportingService, run_report_job
+from app.services.reporting_service import ReportingService, download_name, run_report_job
 
+# Reports contain personal data of every family: ADMIN only (SUPERVISOR and SCANNER get 403).
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
@@ -38,7 +39,7 @@ def create_export(
     body: ExportRequest,
     background: BackgroundTasks,
     request: Request,
-    user: AdminUser = Depends(require_staff),
+    user: AdminUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Queue an Excel export (DAILY needs ``report_date``). Generation runs asynchronously;
@@ -49,13 +50,13 @@ def create_export(
 
 
 @router.get("/exports/{job_id}")
-def get_export(job_id: uuid.UUID, _: AdminUser = Depends(require_staff), db: Session = Depends(get_db)) -> dict:
+def get_export(job_id: uuid.UUID, _: AdminUser = Depends(require_admin), db: Session = Depends(get_db)) -> dict:
     return ok(_job_out(ReportingService(db).get_job(job_id)))
 
 
 @router.get("/exports/{job_id}/download")
 def download_export(
-    job_id: uuid.UUID, request: Request, user: AdminUser = Depends(require_staff), db: Session = Depends(get_db)
+    job_id: uuid.UUID, request: Request, user: AdminUser = Depends(require_admin), db: Session = Depends(get_db)
 ) -> FileResponse:
     service = ReportingService(db)
     job = service.get_job(job_id)
@@ -66,14 +67,14 @@ def download_export(
     return FileResponse(
         path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=path.name,
+        filename=download_name(job),
         headers={"Cache-Control": "no-store"},
     )
 
 
 @router.get("/summary")
 def summary(
-    report_date: date | None = None, _: AdminUser = Depends(require_staff), db: Session = Depends(get_db)
+    report_date: date | None = None, _: AdminUser = Depends(require_admin), db: Session = Depends(get_db)
 ) -> dict:
     """Session-wise registrations, check-ins, utilisation and (completed sessions only) no-shows."""
     service = ReportingService(db)

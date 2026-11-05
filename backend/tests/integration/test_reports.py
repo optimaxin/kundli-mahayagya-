@@ -90,8 +90,8 @@ def test_export_api_async_job_and_download(client, admin_token: str) -> None:  #
     assert bad.status_code == 422
 
 
-def test_summary_endpoint(client, supervisor_token: str) -> None:  # type: ignore[no-untyped-def]
+def test_summary_endpoint(client, admin_token: str) -> None:  # type: ignore[no-untyped-def]
     register_ok(client, members=4, sessions=[3])
-    data = client.get("/api/v1/reports/summary?report_date=2026-12-15", headers=auth(supervisor_token)).json()["data"]
+    data = client.get("/api/v1/reports/summary?report_date=2026-12-15", headers=auth(admin_token)).json()["data"]
     assert [s["session_id"] for s in data] == [3, 4]
     assert data[0]["registered_members"] == 4 and data[0]["no_shows"] is None

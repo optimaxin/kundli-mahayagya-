@@ -68,17 +68,60 @@ message). Example: `https://kundli-mahayagya.vercel.app,https://kundli-mahayagya
 
 1. If the Pages URL differs from what you entered for `CORS_ALLOWED_ORIGINS`, update it in Render
    (Environment) and let Render redeploy.
-2. Create the first organiser account. Run it once, locally, against Supabase (it prompts for the password):
-
-   ```bash
-   cd backend
-   .venv\Scripts\python -m scripts.create_admin --email <you@example.org> --name "Event Admin"
-   ```
-
+2. Create the first organiser account. See [Initial admin provisioning](#initial-admin-provisioning-windows-powershell) below.
    Then add gate volunteers in `/#/admin` → Volunteers.
 3. Smoke test: open `https://<project>.pages.dev/#/register` and check that seat counts load, log in at
    `/#/admin`, and check that the dashboard loads.
 4. Pushes to `main` redeploy both automatically: Render through `autoDeploy`, Pages through its Git integration.
+
+## Initial admin provisioning (Windows PowerShell)
+
+Render Free has no shell, so the first ADMIN is created from your own computer. The command uses the
+backend's normal configuration: `DATABASE_URL` from `backend\.env` (git-ignored), the same database the
+deployed API uses. There is no public sign-up endpoint and no default password.
+
+One-time setup on a new computer:
+
+```powershell
+cd "D:\Hawan Kund\frontend\backend"
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+# backend\.env must contain DATABASE_URL for Supabase (copy it from your password manager, never commit it)
+```
+
+Create the admin:
+
+```powershell
+cd "D:\Hawan Kund\frontend\backend"
+.\.venv\Scripts\python -m scripts.create_admin --email you@example.org --name "Event Admin"
+```
+
+1. It prints the target, e.g. `Target database : db.<project>.supabase.co:5432/postgres (APP_ENV=production)`.
+   The password part of the connection is never shown.
+2. Type `PRODUCTION` to confirm.
+3. Enter the password twice. It is hidden while you type. It needs 12+ characters with upper-case, lower-case
+   and a digit.
+4. On success it prints `Created ADMIN account ...`, and the creation is written to the audit log.
+
+Exit codes:
+
+| Code | Meaning |
+|---|---|
+| 0 | Created |
+| 2 | Bad input / not confirmed |
+| 3 | **An account with that email already exists. Nothing was changed** (it never overwrites a password or role). |
+| 1 | Other error, e.g. no database connection |
+
+To use the Supabase IPv4 pooler instead (for example on a network without IPv6), set it for this terminal only:
+
+```powershell
+$env:DATABASE_URL = "<the pooler URL from backend\.env.render>"
+.\.venv\Scripts\python -m scripts.create_admin --email you@example.org --name "Event Admin"
+Remove-Item Env:DATABASE_URL
+```
+
+Verify it in production: open `https://<your-frontend>/#/admin`, log in with that email and password, and
+check that the dashboard and the "Excel रिपोर्ट डाउनलोड करें" button appear.
 
 ## Database changes later
 

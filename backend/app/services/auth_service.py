@@ -13,7 +13,15 @@ from sqlalchemy.orm import Session
 from app.core import clock, security
 from app.core.config import get_settings
 from app.core.database import run_transaction
-from app.core.errors import AppError, Conflict, NotFound, TooManyRequests, Unauthorized, ValidationFailed
+from app.core.errors import (
+    AppError,
+    Conflict,
+    Forbidden,
+    NotFound,
+    TooManyRequests,
+    Unauthorized,
+    ValidationFailed,
+)
 from app.models import AdminUser
 from app.models.enums import Role
 from app.repositories.misc_repositories import UserRepository
@@ -101,6 +109,36 @@ class AuthService:
             audit(db, ctx, action="PASSWORD_CHANGED", entity_type="admin_user", entity_id=str(u.id))
 
         run_transaction(self.db, work, label="change_password")
+
+    def reset_password(self, user_id: uuid.UUID, new_password: str, ctx: RequestContext) -> AdminUser:
+        """ADMIN-authorised reset of a SCANNER/SUPERVISOR password.
+
+        Not allowed for ADMIN accounts (admins change their own password) or for the
+        caller's own account. Revokes every existing token of the user and clears any
+        login lockout. The password itself is never written to the audit log.
+        """
+        security.validate_password_strength(new_password)
+
+        def work(db: Session) -> AdminUser:
+            user = db.get(AdminUser, user_id, with_for_update=True)
+            if user is None:
+                raise NotFound("Staff user not found")
+            if ctx.actor_id == user.id:
+                raise ValidationFailed("Use change-password for your own account", code="OWN_ACCOUNT")
+            if user.role == Role.ADMIN.value:
+                raise Forbidden("ADMIN passwords can only be changed by their owner", code="ADMIN_PASSWORD_RESET")
+            user.password_hash = security.hash_password(new_password)
+            user.token_version += 1  # log the user out everywhere
+            user.failed_login_count = 0
+            user.locked_until = None
+            audit(db, ctx, action="STAFF_PASSWORD_RESET", entity_type="admin_user", entity_id=str(user.id),
+                  new={"role": user.role, "sessions_revoked": True})
+            return user
+
+        return run_transaction(self.db, work, label="reset_password")
+
+    def find_by_email(self, email: str) -> AdminUser | None:
+        return UserRepository(self.db).by_email(email)
 
     # ---------------------------------------------------- user management
     def create_user(

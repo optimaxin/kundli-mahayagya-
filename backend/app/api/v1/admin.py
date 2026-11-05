@@ -10,7 +10,7 @@ from app.core.permissions import request_context, require_admin, require_staff
 from app.models import AdminUser
 from app.models.enums import Role
 from app.repositories.misc_repositories import AuditRepository, IdempotencyRepository, UserRepository
-from app.schemas.auth import StaffUserCreate, StaffUserOut, StaffUserUpdate
+from app.schemas.auth import StaffPasswordReset, StaffUserCreate, StaffUserOut, StaffUserUpdate
 from app.schemas.common import ApiResponse, Pagination, ok, pagination_params
 from app.services.admin_service import AdminService
 from app.services.audit_service import audit
@@ -96,6 +96,20 @@ def update_user(
 ) -> dict:
     """Rename, (de)activate, or (re)assign a scanner's session. Deactivation revokes tokens."""
     updated = AuthService(db).update_user(user_id, body.model_dump(), request_context(request, user))
+    return ok(StaffUserOut.model_validate(updated).model_dump())
+
+
+@router.post("/users/{user_id}/reset-password", response_model=ApiResponse[StaffUserOut])
+def reset_user_password(
+    user_id: uuid.UUID,
+    body: StaffPasswordReset,
+    request: Request,
+    user: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    """ADMIN sets a new password for a SCANNER/SUPERVISOR account. All of that account's sessions are
+    revoked and any login lockout is cleared. Not available for ADMIN accounts or your own account."""
+    updated = AuthService(db).reset_password(user_id, body.new_password, request_context(request, user))
     return ok(StaffUserOut.model_validate(updated).model_dump())
 
 

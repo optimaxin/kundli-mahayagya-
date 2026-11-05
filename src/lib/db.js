@@ -80,6 +80,16 @@ export function describeError(err, t = (en) => en) {
   if (err.code === 'DUPLICATE_BOOKING') return err.details?.dates
     ? t('This mobile number already has a booking on one of the selected days. Only one session can be booked per day.', 'इस मोबाइल नंबर से चुने गए दिन में पहले से पंजीकरण है। प्रतिदिन केवल एक सत्र बुक हो सकता है।')
     : t('This mobile number already has a booking for one of the selected sessions.', 'इस मोबाइल नंबर से चुने गए सत्र में पहले से पंजीकरण है।')
+  // Staff login / account management (same text for unknown email and wrong password)
+  if (err.code === 'INVALID_CREDENTIALS') return t('Wrong email or password', 'गलत ईमेल या पासवर्ड')
+  if (err.code === 'WRONG_ROLE') return t('This account cannot open this console.', 'यह खाता इस कंसोल में प्रवेश नहीं कर सकता।')
+  if (err.code === 'ACCOUNT_LOCKED') return t('Too many failed attempts. The account is locked for 15 minutes.', 'बहुत अधिक असफल प्रयास। खाता 15 मिनट के लिए बंद है।')
+  if (err.code === 'INVALID_TOKEN' || err.code === 'UNAUTHORIZED') return t('Your session has expired. Please log in again.', 'सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।')
+  if (err.code === 'FORBIDDEN') return t('You do not have permission for this action.', 'आपको यह कार्य करने की अनुमति नहीं है।')
+  if (err.code === 'EMAIL_EXISTS') return t('An account with this email already exists.', 'इस ईमेल से खाता पहले से मौजूद है।')
+  if (err.code === 'INVALID_SESSION') return t('Please choose a valid session.', 'कृपया मान्य सत्र चुनें।')
+  if (err.code === 'ADMIN_PASSWORD_RESET') return t('Admin passwords can only be changed by their owner.', 'एडमिन का पासवर्ड केवल वही स्वयं बदल सकते हैं।')
+  if (err.code === 'REPORT_EXPIRED') return t('The report file is no longer available. Please generate it again.', 'रिपोर्ट फ़ाइल अब उपलब्ध नहीं है। कृपया दोबारा बनाएँ।')
   if (err.status === 429) return t('Too many attempts. Please wait a minute and try again.', 'बहुत अधिक प्रयास। एक मिनट बाद पुनः प्रयास करें।')
   if (err.status === 503) return t('The system is busy. Please try again in a few seconds.', 'सिस्टम व्यस्त है। कुछ सेकंड बाद पुनः प्रयास करें।')
   return err.message
@@ -359,17 +369,43 @@ export async function toggleBlock(date, session, kund, blocked) {
 }
 
 // Volunteers = SCANNER accounts (ADMIN only).
+// Volunteers = SCANNER (gate) and SUPERVISOR accounts. ADMIN accounts are not managed here.
 export async function staffList() {
-  const { data } = await request('/admin/users?role=SCANNER&page_size=200', { auth: 'admin' })
-  return data.map((u) => ({ id: u.id, name: u.full_name, email: u.email, sessionId: u.assigned_session_id, active: u.is_active, lastLogin: u.last_login_at }))
+  const [scanners, supervisors] = await Promise.all(['SCANNER', 'SUPERVISOR'].map((role) =>
+    request(`/admin/users?role=${role}&page_size=200`, { auth: 'admin' })))
+  return [...scanners.data, ...supervisors.data].map((u) => ({
+    id: u.id, name: u.full_name, email: u.email, role: u.role, sessionId: u.assigned_session_id,
+    active: u.is_active, lastLogin: u.last_login_at,
+  }))
 }
-export async function addStaff({ name, email, password, sessionId }) {
-  return (await request('/admin/users', { method: 'POST', auth: 'admin', body: { full_name: name, email, password, role: 'SCANNER', assigned_session_id: sessionId || null } })).data
+export async function addStaff({ name, email, password, sessionId, role = 'SCANNER' }) {
+  const body = { full_name: name, email, password, role, assigned_session_id: role === 'SCANNER' ? sessionId || null : null }
+  return (await request('/admin/users', { method: 'POST', auth: 'admin', body })).data
 }
 export async function updateStaff(id, patch) {
   return (await request(`/admin/users/${id}`, { method: 'PATCH', auth: 'admin', body: patch })).data
 }
 export const removeStaff = (id) => updateStaff(id, { is_active: false })
+export const activateStaff = (id) => updateStaff(id, { is_active: true })
+// ADMIN sets a new password for a volunteer (logs them out everywhere; clears lockout).
+export async function resetStaffPassword(id, newPassword) {
+  return (await request(`/admin/users/${id}/reset-password`, { method: 'POST', auth: 'admin', body: { new_password: newPassword } })).data
+}
+
+// Create the Excel report on the server, wait for it, then download it.
+// onStatus receives 'generating' / 'downloading'. Throws ApiError on failure.
+export async function generateAndDownloadReport(type = 'FINAL', date = null, onStatus = () => {}) {
+  onStatus('generating')
+  let job = await requestReport(type, date)
+  for (let i = 0; i < 150 && (job.status === 'PENDING' || job.status === 'RUNNING'); i++) {
+    await sleep(2000)
+    job = await reportStatus(job.id)
+  }
+  if (job.status !== 'COMPLETED') throw new ApiError(500, 'REPORT_FAILED', 'Report generation failed')
+  onStatus('downloading')
+  await downloadReport(job.id, job.file_name)
+  return job
+}
 
 // Excel reports (generated asynchronously on the server).
 export async function requestReport(type, date) {

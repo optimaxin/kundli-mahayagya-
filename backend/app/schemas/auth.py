@@ -47,6 +47,19 @@ class ChangePasswordRequest(BaseModel):
         return value
 
 
+class StaffPasswordReset(BaseModel):
+    """ADMIN sets a new password for a SCANNER/SUPERVISOR account (e.g. a volunteer forgot theirs)."""
+
+    model_config = ConfigDict(extra="forbid")
+    new_password: str = Field(..., max_length=256)
+
+    @field_validator("new_password")
+    @classmethod
+    def _strength(cls, value: str) -> str:
+        validate_password_strength(value)
+        return value
+
+
 class StaffUserCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     full_name: str

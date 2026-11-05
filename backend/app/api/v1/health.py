@@ -12,13 +12,15 @@ from app.core.database import get_db
 router = APIRouter(prefix="/health", tags=["health"])
 
 
-@router.api_route("", methods=["GET", "HEAD"])
+@router.get("")
+@router.head("", include_in_schema=False)
 def liveness() -> dict:
     """Process is up (no dependencies checked)."""
     return {"success": True, "data": {"status": "ok", "time": clock.now().isoformat()}}
 
 
-@router.api_route("/ready", methods=["GET", "HEAD"])
+@router.get("/ready")
+@router.head("/ready", include_in_schema=False)
 def readiness(db: Session = Depends(get_db)) -> JSONResponse:
     """Database reachable, migrations applied and seed data present."""
     try:

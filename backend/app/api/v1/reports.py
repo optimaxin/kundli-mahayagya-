@@ -14,7 +14,7 @@ from app.models import AdminUser
 from app.models.enums import ReportType
 from app.schemas.common import ok
 from app.services.audit_service import audit
-from app.services.reporting_service import ReportingService, run_report_job
+from app.services.reporting_service import ReportingService, download_name, run_report_job
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -66,7 +66,7 @@ def download_export(
     return FileResponse(
         path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=path.name,
+        filename=download_name(job),
         headers={"Cache-Control": "no-store"},
     )
 

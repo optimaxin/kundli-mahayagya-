@@ -2248,6 +2248,65 @@
         }
       }
     },
+    "/api/v1/admin/users/{user_id}/reset-password": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Reset User Password",
+        "description": "ADMIN sets a new password for a SCANNER/SUPERVISOR account. All of that account's sessions are\nrevoked and any login lockout is cleared. Not available for ADMIN accounts or your own account.",
+        "operationId": "reset_user_password_api_v1_admin_users__user_id__reset_password_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffPasswordReset"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_StaffUserOut_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/maintenance/purge-idempotency-secrets": {
       "post": {
         "tags": [
@@ -5466,6 +5525,22 @@
         "additionalProperties": false,
         "type": "object",
         "title": "SessionUpdate"
+      },
+      "StaffPasswordReset": {
+        "properties": {
+          "new_password": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "New Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "new_password"
+        ],
+        "title": "StaffPasswordReset",
+        "description": "ADMIN sets a new password for a SCANNER/SUPERVISOR account (e.g. a volunteer forgot theirs)."
       },
       "StaffUserCreate": {
         "properties": {

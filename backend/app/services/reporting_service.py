@@ -148,6 +148,7 @@ class ReportingService:
                     "session_id": s.id,
                     "event_date": s.event_date,
                     "slot": s.slot,
+                    "time": f"{s.start_time:%H:%M}-{s.end_time:%H:%M}",
                     "confirmed_families": conf_f,
                     "registered_members": conf_m,
                     "capacity": capacity,
@@ -205,14 +206,15 @@ class ReportingService:
         dash.add(["Session-wise", ""])
         dash.ws.append(
             [
-                "Session", "Date", "Slot", "Families", "Members reserved", "Capacity", "Remaining",
+                "Session", "Date", "Slot", "Time (IST)", "Families", "Members reserved", "Capacity", "Remaining",
                 "Kunds in use", "Utilisation %", "Check-ins", "No-shows", "Cancelled families", "Cancelled members",
             ]
         )
         for r in summary:
             dash.add(
                 [
-                    r["session_id"], r["event_date"], r["slot"], r["confirmed_families"], r["registered_members"],
+                    r["session_id"], r["event_date"], r["slot"], r["time"], r["confirmed_families"],
+                    r["registered_members"],
                     r["capacity"], r["remaining"], r["kunds_in_use"], r["utilisation_percent"], r["checkins"],
                     r["no_shows"] if r["completed"] else "Session not completed",
                     r["cancelled_families"], r["cancelled_members"],
@@ -402,10 +404,26 @@ class ReportingService:
     def job_file(self, job: ReportJob) -> Path:
         if job.status != ReportStatus.COMPLETED.value or not job.file_name:
             raise NotFound("Report is not ready", code="REPORT_NOT_READY", status_code=409)
-        path = Path(get_settings().REPORTS_DIR) / job.file_name
+        path = storage_path(job)
         if not path.is_file():
-            raise NotFound("Report file is no longer available")
+            legacy = Path(get_settings().REPORTS_DIR) / job.file_name  # jobs created before storage_path()
+            if not legacy.is_file():
+                raise NotFound("Report file is no longer available. Please generate it again.",
+                               code="REPORT_EXPIRED", status_code=410)
+            path = legacy
         return path
+
+
+def storage_path(job: ReportJob) -> Path:
+    """Where the workbook is stored on disk (unique per job)."""
+    return Path(get_settings().REPORTS_DIR) / f"{job.id.hex}.xlsx"
+
+
+def download_name(job: ReportJob) -> str:
+    """Human-friendly file name, e.g. Mahayagya_Registration_Report_20261105.xlsx."""
+    if job.report_type == ReportType.DAILY.value and job.report_date:
+        return f"Mahayagya_Daily_Report_{job.report_date:%Y%m%d}.xlsx"
+    return f"Mahayagya_Registration_Report_{clock.now().astimezone(clock.event_tz()):%Y%m%d}.xlsx"
 
 
 def run_report_job(job_id: uuid.UUID) -> None:
@@ -417,11 +435,9 @@ def run_report_job(job_id: uuid.UUID) -> None:
         job.status = ReportStatus.RUNNING.value
         job.started_at = clock.now()
         db.commit()
-        file_name = f"mahayagya-{job.report_type.lower()}-{job.report_date or 'final'}-{job.id.hex[:8]}.xlsx"
+        file_name = download_name(job)
         try:
-            summary = ReportingService(db).build_workbook(
-                Path(get_settings().REPORTS_DIR) / file_name, job.report_type, job.report_date
-            )
+            summary = ReportingService(db).build_workbook(storage_path(job), job.report_type, job.report_date)
             db.rollback()
             job = db.get(ReportJob, job_id)
             assert job is not None

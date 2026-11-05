@@ -41,6 +41,7 @@ from app.core.config import get_settings
 from app.core.database import get_sessionmaker
 from app.core.errors import NotFound, ValidationFailed
 from app.models import (
+    AdminUser,
     AttendanceCheckin,
     Booking,
     BookingSession,
@@ -61,6 +62,17 @@ logger = logging.getLogger("app.reports")
 # Rows fetched per round trip (server-side cursor). Larger batches mean fewer network round trips to a
 # remote database; 10k rows of the widest report query is only a few MB.
 _STREAM = {"yield_per": 10_000}
+
+# Layout shown on passes: 11 zones x 5 sectors (sectors 1-4 = 39 kunds, sector 5 = the rest of the zone).
+_ZONES = ["Brahma", "Vishnu", "Shiva", "Surya", "Ganesha", "Durga", "Lakshmi", "Saraswati", "Hanuman", "Indra", "Agni"]
+_PER_ZONE = 196
+
+
+def zone_sector(kund_number: int) -> tuple[str, int]:
+    """Same mapping as the frontend (src/lib/db.js): returns ("Brahma", 1..5)."""
+    z = min(len(_ZONES) - 1, (kund_number - 1) // _PER_ZONE)
+    o = (kund_number - 1) % _PER_ZONE
+    return _ZONES[z], (5 if o >= 156 else o // 39 + 1)
 # A job that is still PENDING/RUNNING after this long is considered abandoned (e.g. the instance was
 # restarted mid-run) and is reported as FAILED instead of "preparing" forever.
 JOB_TIMEOUT = timedelta(minutes=15)
@@ -375,15 +387,15 @@ class ReportingService:
             # 4. Session Attendance (one row per member per reservation)
             sa = _Sheet(
                 book, "Session Attendance",
-                ["Session", "Date", "Slot", "Booking number", "Kund", "Member #", "Full name", "Reservation status",
-                 "Checked in", "Checked in at", "Source"],
-                [8, 11, 9, 16, 7, 9, 28, 12, 10, 20, 12], timer, "session_attendance",
+                ["Session", "Date", "Slot", "Booking number", "Zone", "Sector", "Kund", "Member #", "Full name",
+                 "Reservation status", "Checked in", "Checked in at", "Source", "Scanned by", "Scanner email"],
+                [8, 11, 9, 16, 12, 7, 7, 9, 28, 12, 10, 20, 12, 24, 28], timer, "session_attendance",
             )
-            for sid, bn, kn, mn, name, rst, at, src in timer.rows(
+            for sid, bn, kn, mn, name, rst, at, src, scan_name, scan_email in timer.rows(
                 "session_attendance", db,
                 select(BookingSession.session_id, Booking.booking_number, Kund.kund_number,
                        FamilyMember.member_number, FamilyMember.full_name, BookingSession.status,
-                       AttendanceCheckin.checked_in_at, AttendanceCheckin.source)
+                       AttendanceCheckin.checked_in_at, AttendanceCheckin.source, AdminUser.full_name, AdminUser.email)
                 .join(Booking, Booking.id == BookingSession.booking_id)
                 .join(Kund, Kund.id == BookingSession.kund_id)
                 .join(FamilyMember, FamilyMember.booking_id == BookingSession.booking_id)
@@ -392,19 +404,21 @@ class ReportingService:
                     (AttendanceCheckin.booking_session_id == BookingSession.id)
                     & (AttendanceCheckin.member_id == FamilyMember.id),
                 )
+                .outerjoin(AdminUser, AdminUser.id == AttendanceCheckin.scanner_id)
                 .where(BookingSession.session_id.in_(ids))
                 .order_by(BookingSession.session_id, Kund.kund_number, Booking.id, FamilyMember.member_number)
                 .execution_options(**_STREAM),
             ):
                 d, slot = where_dates[sid]
-                sa.add([sid, d, slot, bn, kn, mn, name, rst, "YES" if at else "NO", at, src])
+                sa.add([sid, d, slot, bn, *zone_sector(kn), kn, mn, name, rst, "YES" if at else "NO", at, src,
+                        scan_name if at else None, scan_email if at else None])
 
             # 5. Kund Allocation: one row per Kund per session (empty Kunds included), families aggregated in SQL
             ka = _Sheet(
                 book, "Kund Allocation",
-                ["Session", "Date", "Slot", "Kund", "Kund active", "Capacity", "Reserved", "Remaining",
+                ["Session", "Date", "Slot", "Zone", "Sector", "Kund", "Kund active", "Capacity", "Reserved", "Remaining",
                  "Utilisation %", "Families (booking:members)"],
-                [8, 11, 9, 7, 10, 9, 9, 10, 12, 50], timer, "kund_allocation",
+                [8, 11, 9, 12, 7, 7, 10, 9, 9, 10, 12, 50], timer, "kund_allocation",
             )
             families = (
                 select(
@@ -432,7 +446,7 @@ class ReportingService:
                 .execution_options(**_STREAM),
             ):
                 d, slot = where_dates[sid]
-                ka.add([sid, d, slot, kn, "YES" if active else "NO", cap, reserved, cap - reserved,
+                ka.add([sid, d, slot, *zone_sector(kn), kn, "YES" if active else "NO", cap, reserved, cap - reserved,
                         round(100 * reserved / cap, 1), fams])
 
             # 6. Cancellations

@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { LayoutDashboard, List, ScanLine, Grid3x3, Settings, LogOut, Users, Armchair, DoorOpen, Percent, Download, Search, Check, Lock, Trash2, ChevronDown, Ban, UserCog, UserPlus, TrendingUp, Home, FileSpreadsheet, Mail, KeyRound } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import Staff from './Staff.jsx'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Mandala, Om } from '../components/ui.jsx'
 import Scanner from '../components/Scanner.jsx'
 import { Area, Columns, Donut, HBars, Heat, PAL, StackedBars } from '../components/charts.jsx'
 import {
-  EVENT, ZONES, addStaff, analytics, currentAuth, describeError, exportBookings, fmtDate, kundFamilies,
+  EVENT, ZONES, kundLabel, sectorOf, cancelBooking, addStaff, analytics, currentAuth, describeError, exportBookings, fmtDate, kundFamilies,
   kundMap, signIn, logout, markEntered, removeStaff, activateStaff, resetStaffPassword, generateAndDownloadReport,
   searchBookings, slotOf,
   slotStats, slotWindow, staffList, toggleBlock, updateStaff, usePoll, useSlots, zoneRange,
@@ -18,8 +19,8 @@ const SESSION_IDS = Array.from({ length: EVENT.dates.length * 2 }, (_, i) => i +
 
 export default function Admin() {
   const { t } = useLang()
-  const navigate = useNavigate()
   const [auth, setAuth] = useState(() => currentAuth('admin'))
+  const [gate, setGate] = useState(() => !currentAuth('admin') && !!currentAuth('staff'))
   const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
   const [err, setErr] = useState('')
@@ -38,10 +39,12 @@ export default function Admin() {
     try {
       const r = await signIn(email, pw)
       setPw('')
-      if (r.kind === 'admin') setAuth(r); else navigate('/staff') // gate (scanner) accounts go to the gate page
+      if (r.kind === 'admin') setAuth(r); else setGate(true) // gate (scanner) accounts get the gate panel on this same URL
     } catch (x) { setErr(x.status === 401 ? t('Wrong email or password', 'गलत ईमेल या पासवर्ड') : describeError(x, t)) } finally { setBusy(false) }
   }
   const signOut = async () => { await logout('admin'); setAuth(null) }
+
+  if (!auth && gate) return <Staff onAdmin={(r) => { setAuth(r); setGate(false) }} />
 
   if (!auth) return (
     <div className="relative grid min-h-[80vh] place-items-center overflow-hidden bg-gradient-to-br from-maroon-950 to-maroon-800 px-4">
@@ -241,6 +244,10 @@ function Bookings() {
     if (!confirm(t(`Mark ${left} member(s) of ${b.id} as entered? This cannot be undone.`, `${b.id} के ${left} सदस्यों का प्रवेश दर्ज करें? इसे वापस नहीं लिया जा सकता।`))) return
     try { await markEntered(b.id, s.date, s.session); reload() } catch (x) { alert(describeError(x, t)) }
   }
+  const remove = async (b) => {
+    if (!confirm(t(`Cancel ALL sessions of ${b.id} (${b.coordinator.name}, ${b.members.length} members)? Their seats will be released and the QR pass stops working. This cannot be undone.`, `${b.id} (${b.coordinator.name}, ${b.members.length} सदस्य) के सभी सत्र रद्द करें? उनके आसन खाली हो जाएँगे और QR पास बंद हो जाएगा। इसे वापस नहीं लिया जा सकता।`))) return
+    try { await cancelBooking(b.id); reload() } catch (x) { alert(describeError(x, t)) }
+  }
   return (
     <>
       <H sub={res ? `${nf(res.total)} ${t('families match', 'परिवार मिले')}` : ''} right={<div className="flex items-center gap-2">{note && <span className="text-xs text-slate-500">{note}</span>}<Btn variant="ghost" onClick={csv} className="min-h-10 px-4 text-sm"><Download size={16} />{t('Export CSV', 'CSV निकालें')}</Btn></div>}>{t('Bookings', 'पंजीकरण')}</H>
@@ -274,11 +281,12 @@ function Bookings() {
                     const canMark = s.status === 'CONFIRMED' && !complete && Date.now() >= slotWindow(s.date, s.session)[0]
                     return (
                       <button key={s.date + s.session} disabled={!canMark} onClick={() => enter(b, s)} className={`mb-1.5 flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm font-medium transition ${s.status === 'CANCELLED' ? 'border-red-200 bg-red-50 text-red-700' : s.attended ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white enabled:hover:bg-slate-50'}`}>
-                        <span>{fmtDate(s.date, lang)} · {t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)} · {t('Kund', 'कुंड')} #{s.kund}</span>
+                        <span>{fmtDate(s.date, lang)} · {t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)} · {kundLabel(s.kund, t)}</span>
                         {s.status === 'CANCELLED' ? <span className="text-xs">{t('Cancelled', 'रद्द')}</span> : s.attended ? <span className="flex items-center gap-1 text-xs"><Check size={14} />{s.checkedIn}/{b.members.length} · {new Date(s.attendedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}{s.by ? ` · ${s.by}` : ''}</span> : <span className="text-xs text-slate-400">{t('Not entered', 'प्रवेश नहीं')}</span>}
                       </button>
                     )
                   })}
+                  {b.status !== 'CANCELLED' && b.slots.some((s) => s.status !== 'CANCELLED') && <Btn variant="ghost" className="mt-2 w-full text-sm !text-red-700" onClick={() => remove(b)}><Trash2 size={16} />{t('Cancel / delete this booking', 'यह बुकिंग रद्द करें')}</Btn>}
                 </div>
               </div>
             )}
@@ -335,8 +343,18 @@ function KundMap() {
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         <Card className="!p-3">
           {!map ? <Loading /> : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] gap-1.5">
-              {cells.map((k) => <button key={k} onClick={() => setSel(k)} title={`${occ[k] || 0}/${EVENT.seats}`} className={`aspect-square rounded-lg text-[10px] font-bold transition active:scale-90 ${color(k)} ${sel === k ? 'ring-2 ring-maroon-900 ring-offset-1' : ''}`}>{k}</button>)}
+            <div className="space-y-4">
+              {[0, 1, 2, 3, 4].map((sec) => {
+                const ks = cells.filter((k) => sectorOf(k) === sec)
+                return ks.length > 0 && (
+                  <div key={sec}>
+                    <div className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">{t('Sector', 'सेक्टर')} {sec + 1} · {ks.length} {t('kunds', 'कुंड')} <span className="font-medium normal-case">(#{ks[0]}–{ks[ks.length - 1]})</span></div>
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] gap-1.5">
+                      {ks.map((k) => <button key={k} onClick={() => setSel(k)} title={`${occ[k] || 0}/${EVENT.seats}`} className={`aspect-square rounded-lg text-[10px] font-bold transition active:scale-90 ${color(k)} ${sel === k ? 'ring-2 ring-maroon-900 ring-offset-1' : ''}`}>{k}</button>)}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </Card>
@@ -344,7 +362,7 @@ function KundMap() {
           {!sel ? <p className="text-sm text-slate-500">{t('Select a kund.', 'कोई कुंड चुनें।')}</p> : (
             <>
               <div className="text-xl font-bold text-slate-900">{t('Kund', 'कुंड')} #{sel}</div>
-              <div className="text-xs text-slate-500">{t(ZONES[Math.min(10, zone)][0], ZONES[Math.min(10, zone)][1])} · {occ[sel] || 0}/{EVENT.seats} {t('seats', 'आसन')}{inactive[sel] ? ` · ${t('inactive (all sessions)', 'निष्क्रिय (सभी सत्र)')}` : ''}</div>
+              <div className="text-xs text-slate-500">{kundLabel(sel, t)} · {occ[sel] || 0}/{EVENT.seats} {t('seats', 'आसन')}{inactive[sel] ? ` · ${t('inactive (all sessions)', 'निष्क्रिय (सभी सत्र)')}` : ''}</div>
               <div className="mt-2 flex gap-1">{Array.from({ length: EVENT.seats }, (_, i) => <span key={i} className={`size-5 rounded-full ${i < (occ[sel] || 0) ? 'bg-maroon-700' : 'bg-slate-200'}`} />)}</div>
               <div className="mt-3 space-y-2">{fams.map((b) => <div key={b.id} className="rounded-lg bg-slate-50 p-2.5 text-sm"><b>{b.name}</b> · {b.size}<div className="text-xs text-slate-500">{b.id}</div></div>)}</div>
               {!occ[sel] && !inactive[sel] && <Btn variant="ghost" className="mt-4 w-full text-sm" onClick={block}><Ban size={16} />{blocked[sel] ? t('Unblock', 'खोलें') : t('Block this kund', 'कुंड बंद करें')}</Btn>}

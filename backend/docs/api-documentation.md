@@ -35,7 +35,7 @@ Every response carries an `X-Request-ID` header. Quote it in support requests.
 | 403 | `FORBIDDEN` |
 | 404 | `NOT_FOUND`, `INVALID_QR` |
 | 409 | `CAPACITY_UNAVAILABLE`, `DUPLICATE_BOOKING`, `RESERVATION_HAS_CHECKINS`, `SESSION_COMPLETED`, `EMAIL_EXISTS`, `IDEMPOTENCY_IN_PROGRESS` |
-| 422 | `VALIDATION_ERROR` (with per-field `details`), `INVALID_SESSION`, `SESSION_NOT_BOOKABLE`, `ONE_SESSION_PER_DAY`, `IDEMPOTENCY_KEY_REUSED`, `INVALID_BOOKING_NUMBER` |
+| 422 | `VALIDATION_ERROR` (with per-field `details`), `INVALID_SESSION`, `SESSION_NOT_BOOKABLE`, `IDEMPOTENCY_KEY_REUSED`, `INVALID_BOOKING_NUMBER` |
 | 429 | `RATE_LIMITED`, `ACCOUNT_LOCKED` (both send `Retry-After`) |
 | 503 | `SERVICE_BUSY` (admission control or lock contention), `DATABASE_UNAVAILABLE` (both send `Retry-After`; safe to retry with the same `Idempotency-Key`) |
 
@@ -124,10 +124,9 @@ Validation rules:
 * Names may contain letters of any script plus `. ' -`.
 * Session ids must exist, be unique, and be open (status SCHEDULED, active, at least 60 min
   before the start).
-* **One session per day:** a booking cannot include both the morning and the afternoon session of
-  the same date (`422 ONE_SESSION_PER_DAY`, with the offending `dates` and `sessions`). A family
-  may still pick one session on each of several days, in either slot. Switch off with
-  `ONE_SESSION_PER_DAY=false`.
+* **Morning, afternoon or both:** a booking may include the morning session, the afternoon
+  session or both sessions of any date, on as many dates as wanted (up to all 16 sessions). Each
+  selected session gets its own Kund; the whole family sits in one Kund per session.
 * Unknown fields are rejected.
 
 Behaviour:
@@ -138,8 +137,8 @@ Behaviour:
   `409 CAPACITY_UNAVAILABLE` and **nothing** is booked. `details.availability` lists
   `largest_family_bookable` per session.
 * `409 DUPLICATE_BOOKING` means this primary mobile already holds a confirmed reservation in one
-  of the selected sessions (`details.sessions`), or, with one-session-per-day on, in either slot of
-  one of the selected days (`details.dates`). A cancelled reservation frees the day again.
+  of the selected sessions (`details.sessions`). Booking a *different* session, including the other
+  session of the same date, is allowed. A cancelled reservation frees the session again.
 
 ### Sessions and Kunds
 
@@ -203,6 +202,10 @@ them uniformly. 401 and 403 are used only for authentication and permission fail
   attendee reservations, check-ins, capacity.
 * `GET /admin/analytics`: the admin console's dashboard data (per-session used/capacity/attended,
   ages, gender, family sizes, cities, 14-day trend, entries by volunteer, relationships); cached ~10 s.
+  Counts: `families` = confirmed bookings, `uniqueFamilies` = distinct primary mobile numbers among
+  them, `familySessions` = confirmed family-session reservations (a family booking both sessions of
+  a date counts once in `families` and twice here), `people` = registered members,
+  `seatsUsed` = attendee-session reservations, `entered` = per-session check-ins.
 * `GET /sessions/{id}/kund-map`: `{occ: {kund: reserved}, blocked: [...], inactive: [...]}` for all Kunds.
 * `POST /sessions/{id}/kunds/{kund_number}/block` `{blocked}`: block or unblock an **empty** Kund for
   one session (409 `KUND_NOT_EMPTY` otherwise). Blocked Kunds are skipped by allocation. Audited.

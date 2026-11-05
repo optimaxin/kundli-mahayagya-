@@ -97,7 +97,15 @@ class DashboardService:
                 "attended": int(attended.get(s.id, 0)),
             }
 
+        # Unique families vs bookings vs reservations: a family booking both sessions of a date is ONE
+        # booking with two reservations. uniqueFamilies also folds separate bookings made from the same
+        # primary mobile number into one family.
         families = db.scalar(select(func.count()).select_from(Booking).where(confirmed)) or 0
+        unique_families = db.scalar(select(func.count(func.distinct(Booking.primary_mobile))).where(confirmed)) or 0
+        family_sessions = db.scalar(
+            select(func.count()).select_from(BookingSession)
+            .where(BookingSession.status == ReservationStatus.CONFIRMED.value)
+        ) or 0
         people = db.scalar(select(func.coalesce(func.sum(Booking.member_count), 0)).where(confirmed)) or 0
         entered = sum(int(v) for v in attended.values())
         seats_total = sum(st.total_capacity for st in stats.values())
@@ -179,6 +187,8 @@ class DashboardService:
         return {
             "days": [days[k] for k in sorted(days)],
             "families": int(families),
+            "uniqueFamilies": int(unique_families),
+            "familySessions": int(family_sessions),
             "people": int(people),
             "entered": entered,
             "seatsTotal": seats_total,

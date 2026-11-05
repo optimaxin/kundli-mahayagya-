@@ -100,11 +100,10 @@ is all-or-nothing.
    second **replays** the stored response, including the same QR token (kept encrypted for
    24 h only). If the body differs, the response is `422 IDEMPOTENCY_KEY_REUSED`. A failed
    attempt leaves no record, so a retry runs again from scratch.
-2. Validate the sessions: they exist, and no date has both its morning and afternoon session
-   selected (`422 ONE_SESSION_PER_DAY`).
+2. Validate the sessions: they exist (`422 INVALID_SESSION`). Morning and afternoon of the same
+   date may both be selected; each becomes its own reservation with its own Kund.
 3. Take an advisory lock on the coordinator's mobile number. If a confirmed booking already
-   exists for the same mobile in the same session, or on the same day in either slot, return
-   `409 DUPLICATE_BOOKING`. This protects against double clicks with different keys.
+   exists for the same mobile in the same session, return `409 DUPLICATE_BOOKING`. This protects against double clicks with different keys.
    Then check that the sessions are active, have status SCHEDULED, and are before the cut-off
    (60 min before start).
 4. Insert the booking (random `MY26-XXXXXXXX` number) and its members.

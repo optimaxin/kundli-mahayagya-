@@ -101,9 +101,11 @@ def test_concurrent_allocation_never_overbooks(db: Session) -> None:
 def test_concurrent_overlapping_multi_session_bookings_do_not_deadlock(db: Session) -> None:
     """Families select overlapping session sets in different orders; all must succeed."""
     rng = random.Random(7)
-    # 2-4 different days each, one session (morning or afternoon) per day.
+    # 2-4 different days each: the morning, the afternoon or both sessions of each day.
     selections = [
-        [2 * d + 1 + rng.randint(0, 1) for d in rng.sample(range(4), k=rng.randint(2, 4))] for _ in range(40)
+        sorted({2 * d + 1 + s for d in rng.sample(range(4), k=rng.randint(2, 4))
+                for s in rng.choice([[0], [1], [0, 1]])})
+        for _ in range(40)
     ]
     sizes = [rng.randint(1, 8) for _ in range(40)]
     results = run_concurrently(
@@ -126,6 +128,35 @@ def test_concurrent_multi_session_contention_is_all_or_nothing(db: Session) -> N
     # Losers left no trace in session 1.
     assert db.execute(text("SELECT sum(reserved_count) FROM kund_session_capacity WHERE session_id = 1")).scalar() == 4
     assert db.execute(text("SELECT count(*) FROM bookings")).scalar() == 1
+
+
+def test_concurrent_both_session_bookings_never_overbook_either_session(db: Session) -> None:
+    """Only Kunds 1-2 are active (16 places per session). Families race for the morning, the
+    afternoon or both sessions of 14 Dec; neither session may be overbooked and a family that
+    asked for both sessions gets both or nothing."""
+    only_kunds_active(db, [1, 2])
+    rng = random.Random(11)
+    picks = [rng.choice([[1], [2], [1, 2], [1, 2]]) for _ in range(24)]
+    sizes = [rng.randint(2, 5) for _ in range(24)]
+    results = run_concurrently(
+        len(picks), lambda i: register_service(registration_payload(members=sizes[i], sessions=picks[i]))
+    )
+    c = codes(results)
+    assert set(c) <= {"OK", "CAPACITY_UNAVAILABLE"}, c
+    assert c["OK"] > 0 and c["CAPACITY_UNAVAILABLE"] > 0, c  # the test really created contention
+    for sid in (1, 2):
+        total = db.execute(text("SELECT sum(reserved_count) FROM kund_session_capacity WHERE session_id = :s"),
+                           {"s": sid}).scalar()
+        assert total <= 16, (sid, total)
+        assert reserved(db, sid, 1) <= 8 and reserved(db, sid, 2) <= 8
+    # all-or-nothing: each booking holds exactly the sessions it asked for
+    held = dict(db.execute(text(
+        "SELECT b.booking_number, array_agg(bs.session_id ORDER BY bs.session_id) FROM bookings b "
+        "JOIN booking_sessions bs ON bs.booking_id = b.id GROUP BY 1")).all())
+    ok = {r["booking_number"]: picks[i] for i, r in enumerate(results) if isinstance(r, dict)}
+    assert held == ok
+    assert db.execute(text("SELECT count(*) FROM bookings")).scalar() == c["OK"]
+    assert_capacity_consistent(db)
 
 
 def test_concurrent_duplicate_requests_with_same_idempotency_key(db: Session) -> None:

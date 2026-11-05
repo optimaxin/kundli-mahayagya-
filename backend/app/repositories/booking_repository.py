@@ -93,21 +93,6 @@ class BookingRepository:
         )
         return sorted(self.db.scalars(stmt))
 
-    def confirmed_dates_for_mobile(self, mobile: str, dates: Sequence[date]) -> list[date]:
-        """Dates on which this mobile already holds a confirmed reservation (either slot)."""
-        stmt = (
-            select(EventSession.event_date)
-            .join(BookingSession, BookingSession.session_id == EventSession.id)
-            .join(Booking, Booking.id == BookingSession.booking_id)
-            .where(
-                Booking.primary_mobile == mobile,
-                EventSession.event_date.in_(dates),
-                BookingSession.status == ReservationStatus.CONFIRMED.value,
-            )
-            .distinct()
-        )
-        return sorted(self.db.scalars(stmt))
-
     # ------------------------------------------------------------ queries
     def get_by_number(self, booking_number: str, *, for_update: bool = False) -> Booking | None:
         stmt = (

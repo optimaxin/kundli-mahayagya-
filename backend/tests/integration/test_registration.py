@@ -144,44 +144,10 @@ def test_same_mobile_cannot_book_same_session_twice(client, db: Session) -> None
     register_ok(client, payload=registration_payload(mobile="9811111111", sessions=[5]))
 
 
-# ------------------------------------------------------------ one session per day
-def test_cannot_book_morning_and_afternoon_of_the_same_day(client, db: Session) -> None:  # type: ignore[no-untyped-def]
-    r = register(client, members=2, sessions=[1, 2, 5])  # 1 = 14 Dec morning, 2 = 14 Dec afternoon
-    assert r.status_code == 422
-    err = r.json()["error"]
-    assert err["code"] == "ONE_SESSION_PER_DAY"
-    assert err["details"] == {"dates": ["2026-12-14"], "sessions": [1, 2]}
-    for table in ("bookings", "family_members", "booking_sessions", "qr_passes", "idempotency_records"):
-        assert count(db, table) == 0, table
-    assert db.execute(text("SELECT coalesce(sum(reserved_count), 0) FROM kund_session_capacity")).scalar() == 0
-
-
+# ------------------------------------------------------------ several days (both-session rules: test_both_sessions.py)
 def test_one_session_each_day_in_either_slot_is_allowed(client) -> None:  # type: ignore[no-untyped-def]
     data = register_ok(client, members=2, sessions=[1, 4, 5, 8])  # mixed mornings/afternoons, 4 different days
     assert [r["session_id"] for r in data["reservations"]] == [1, 4, 5, 8]
-
-
-def test_same_mobile_cannot_add_the_other_slot_of_a_booked_day(client) -> None:  # type: ignore[no-untyped-def]
-    register_ok(client, payload=registration_payload(mobile="9812222222", sessions=[1]))  # 14 Dec morning
-    r = register(client, payload=registration_payload(mobile="9812222222", sessions=[2]))  # 14 Dec afternoon
-    assert r.status_code == 409
-    assert r.json()["error"]["code"] == "DUPLICATE_BOOKING"
-    assert r.json()["error"]["details"] == {"dates": ["2026-12-14"]}
-    register_ok(client, payload=registration_payload(mobile="9812222222", sessions=[4]))  # another day is fine
-
-
-def test_cancelled_slot_frees_the_day_for_the_same_mobile(client, admin_token: str) -> None:  # type: ignore[no-untyped-def]
-    first = register_ok(client, payload=registration_payload(mobile="9813333333", sessions=[1]))
-    client.post(f"/api/v1/bookings/{first['booking_number']}/cancel", json={"reason": "Changed my mind"},
-                headers={"Authorization": f"Bearer {admin_token}"})
-    assert register(client, payload=registration_payload(mobile="9813333333", sessions=[2])).status_code == 201
-
-
-def test_one_session_per_day_can_be_switched_off(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    from app.core.config import get_settings
-
-    monkeypatch.setattr(get_settings(), "ONE_SESSION_PER_DAY", False)
-    assert register(client, members=1, sessions=[1, 2]).status_code == 201
 
 
 def test_failed_multi_session_allocation_rolls_back_completely(client, db: Session) -> None:  # type: ignore[no-untyped-def]

@@ -79,10 +79,7 @@ export function describeError(err, t = (en) => en) {
   if (err.code === 'NETWORK') return t('No connection to the server. Please try again.', 'सर्वर से संपर्क नहीं हो पाया। कृपया पुनः प्रयास करें।')
   if (err.code === 'VALIDATION_ERROR' && Array.isArray(err.details) && err.details.length)
     return err.details.map((d) => d.message).join('. ')
-  if (err.code === 'ONE_SESSION_PER_DAY') return t('You can book only one session per day: morning or afternoon, not both.', 'प्रतिदिन केवल एक सत्र चुन सकते हैं: प्रातः या अपराह्न, दोनों नहीं।')
-  if (err.code === 'DUPLICATE_BOOKING') return err.details?.dates
-    ? t('This mobile number already has a booking on one of the selected days. Only one session can be booked per day.', 'इस मोबाइल नंबर से चुने गए दिन में पहले से पंजीकरण है। प्रतिदिन केवल एक सत्र बुक हो सकता है।')
-    : t('This mobile number already has a booking for one of the selected sessions.', 'इस मोबाइल नंबर से चुने गए सत्र में पहले से पंजीकरण है।')
+  if (err.code === 'DUPLICATE_BOOKING') return t('This mobile number already has a booking for one of the selected sessions.', 'इस मोबाइल नंबर से चुने गए सत्र में पहले से पंजीकरण है।')
   // Staff login / account management (same text for unknown email and wrong password)
   if (err.code === 'INVALID_CREDENTIALS') return t('Wrong email or password', 'गलत ईमेल या पासवर्ड')
   if (err.code === 'WRONG_ROLE') return t('This account cannot open this console.', 'यह खाता इस कंसोल में प्रवेश नहीं कर सकता।')

@@ -144,7 +144,7 @@ function Overview({ canExport = false }) {
       {a.families === 0 && <div className="mb-5 rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500">{t('No bookings yet.', 'अभी कोई पंजीकरण नहीं।')}</div>}
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <Kpi icon={Users} label={t('Families', 'परिवार')} value={nf(a.families)} sub={`${t('Avg size', 'औसत सदस्य')} ${a.avgFamily.toFixed(1)}`} color={PAL.maroon} />
+        <Kpi icon={Users} label={t('Families', 'परिवार')} value={nf(a.uniqueFamilies ?? a.families)} sub={`${nf(a.families)} ${t('bookings', 'पंजीकरण')} · ${nf(a.familySessions ?? 0)} ${t('session bookings', 'सत्र बुकिंग')}`} color={PAL.maroon} />
         <Kpi icon={Armchair} label={t('Seats booked', 'बुक आसन')} value={nf(a.seatsUsed)} sub={`${t('of', 'में से')} ${nf(a.seatsTotal)}`} color={PAL.saffron} bar={pct} />
         <Kpi icon={DoorOpen} label={t('Entered', 'प्रवेश')} value={nf(a.entered)} sub={`${entPct.toFixed(0)}% ${t('of booked seats', 'बुक आसनों का')}`} color={PAL.emerald} bar={entPct} />
         <Kpi icon={Percent} label={t('Capacity used', 'क्षमता उपयोग')} value={`${pct.toFixed(1)}%`} sub={`${nf(a.seatsTotal - a.seatsUsed)} ${t('seats free', 'आसन खाली')}`} color={PAL.gold} bar={pct} />

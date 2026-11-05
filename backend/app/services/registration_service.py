@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 
 from fastapi.encoders import jsonable_encoder
@@ -134,21 +134,11 @@ class RegistrationService:
                 details={"invalid_sessions": invalid},
             )
 
-        # 3. one session per day: a booking may not include both the morning and the afternoon
-        #    session of the same date.
-        if settings.ONE_SESSION_PER_DAY:
-            by_date: dict[date, list[int]] = {}
-            for sid in session_ids:
-                by_date.setdefault(sessions[sid].event_date, []).append(sid)
-            twice = {d.isoformat(): ids for d, ids in by_date.items() if len(ids) > 1}
-            if twice:
-                raise ValidationFailed(
-                    "Only one session (morning or afternoon) can be booked per day",
-                    code="ONE_SESSION_PER_DAY",
-                    details={"dates": sorted(twice), "sessions": sorted(i for ids in twice.values() for i in ids)},
-                )
+        # 3. A family may book the morning, the afternoon or BOTH sessions of a date (each selected
+        #    session gets its own Kund). Duplicate session ids are rejected by the request schema.
 
-        # 4. duplicate-booking guard (serialised per mobile number)
+        # 4. duplicate-booking guard (serialised per mobile number): the same mobile may not hold two
+        #    confirmed reservations for the SAME session. Other sessions, same date included, are fine.
         if settings.ENFORCE_UNIQUE_MOBILE_PER_SESSION:
             bookings.lock_mobile(c.primary_mobile)
             dup = bookings.confirmed_sessions_for_mobile(c.primary_mobile, session_ids)
@@ -158,17 +148,6 @@ class RegistrationService:
                     code="DUPLICATE_BOOKING",
                     details={"sessions": dup},
                 )
-            if settings.ONE_SESSION_PER_DAY:
-                busy_days = bookings.confirmed_dates_for_mobile(
-                    c.primary_mobile, sorted({s.event_date for s in sessions.values()})
-                )
-                if busy_days:
-                    raise Conflict(
-                        "This mobile number already has a booking on the selected day(s). "
-                        "Only one session can be booked per day.",
-                        code="DUPLICATE_BOOKING",
-                        details={"dates": [d.isoformat() for d in busy_days]},
-                    )
         blocked = [
             {"session_id": sid, "reason": reason}
             for sid in session_ids

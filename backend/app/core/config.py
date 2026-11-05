@@ -116,8 +116,6 @@ class Settings(BaseSettings):
     REQUIRE_IDEMPOTENCY_KEY: bool = True
     IDEMPOTENCY_TTL_HOURS: int = 24
     ENFORCE_UNIQUE_MOBILE_PER_SESSION: bool = True
-    # A booking (and a mobile number) may hold only ONE session per day: morning OR afternoon, not both.
-    ONE_SESSION_PER_DAY: bool = True
     ALLOCATION_MAX_RETRIES: int = 4
 
     # ------------------------------------------------------------------- QR

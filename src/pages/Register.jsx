@@ -90,11 +90,13 @@ export default function Register() {
   }
   const toggleSlot = (date, session) => {
     const k = `${date}|${session}`
-    // One session per day: choosing a slot replaces the other slot of the same date.
-    setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p.filter((x) => !x.startsWith(`${date}|`)), k]))
+    // Morning and afternoon are independent: a family may pick either or both sessions of a date.
+    setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]))
     setErrs({})
   }
-  const bulk = (session) => setPicked(EVENT.dates.map((d) => `${d}|${session}`).filter((k) => fits[k]))
+  // "All mornings" / "All afternoons" add to the current selection (both together = every session).
+  const bulk = (session) => setPicked((p) => [...new Set([...p, ...EVENT.dates.map((d) => `${d}|${session}`).filter((k) => fits[k])])])
+  const bothDays = EVENT.dates.filter((d) => Object.keys(EVENT.sessions).every((s) => picked.includes(`${d}|${s}`)))
 
   const submit = async () => {
     if (!validate(3)) return
@@ -225,7 +227,7 @@ export default function Register() {
 
               {step === 2 && (
                 <div className="space-y-5">
-                  <Head h={t('Choose day & session', 'दिन व सत्र चुनें')} p={t(`Seats shown are for your ${n}-member family. You can book one session per day: morning or afternoon, not both. Pick several days to attend more days.`, `आपके ${n} सदस्यों के अनुसार उपलब्धता। प्रतिदिन केवल एक सत्र चुन सकते हैं: प्रातः या अपराह्न, दोनों नहीं। अधिक दिनों के लिए अनेक दिन चुनें।`)} />
+                  <Head h={t('Choose day & session', 'दिन व सत्र चुनें')} p={t(`Seats shown are for your ${n}-member family. On each day you can pick the morning, the afternoon or both sessions, and as many days as you like. Each selected session gets its own Kund.`, `आपके ${n} सदस्यों के अनुसार उपलब्धता। हर दिन प्रातः, अपराह्न या दोनों सत्र चुन सकते हैं, और जितने चाहें उतने दिन। हर चुने गए सत्र के लिए अलग कुंड आवंटित होगा।`)} />
                   {slotsError() && !Object.values(fits).some(Boolean) && (
                     <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
                       <AlertCircle size={18} className="shrink-0" />
@@ -264,7 +266,11 @@ export default function Register() {
                     ))}
                   </div>
                   {errs.slots && <p className="text-sm font-bold text-red-600">{errs.slots}</p>}
-                  <p className="text-center text-sm font-semibold text-maroon-800">{t(`${picked.length} session(s) selected`, `${picked.length} सत्र चुने गए`)}</p>
+                  <div className="rounded-2xl border border-maroon-100 bg-white/70 p-3 text-center text-sm text-maroon-800" aria-live="polite">
+                    <p className="font-semibold">{t(`${picked.length} session(s) selected · ${n}-member family`, `${picked.length} सत्र चुने गए · ${n} सदस्यीय परिवार`)}</p>
+                    {picked.length > 0 && <p className="mt-0.5 text-xs text-stone-600">{t(`Total ${picked.length * n} attendee places (${n} × ${picked.length} sessions)`, `कुल ${picked.length * n} आसन (${n} × ${picked.length} सत्र)`)}</p>}
+                    {bothDays.length > 0 && <p className="mt-1.5 text-xs font-semibold text-saffron-600">{t(`Both sessions on ${bothDays.map((d) => fmtDate(d, lang, { day: 'numeric', month: 'short' })).join(', ')}: morning and afternoon are two separate Kund allocations.`, `${bothDays.map((d) => fmtDate(d, lang, { day: 'numeric', month: 'short' })).join(', ')} को दोनों सत्र: प्रातः और अपराह्न के लिए दो अलग कुंड आवंटन होंगे।`)}</p>}
+                  </div>
                 </div>
               )}
 
@@ -275,6 +281,7 @@ export default function Register() {
                     <Row l={t('Yagyakarta', 'यज्ञकर्ता')} v={`${c.name} · +91 ${c.mobile}`} />
                     <Row l={t('City', 'शहर')} v={`${c.city}, ${c.state}`} />
                     <Row l={t('Family', 'परिवार')} v={members.map((m, i) => (i === 0 ? c.name : m.name)).join(', ')} />
+                    <Row l={t('Attendee places', 'कुल आसन')} v={t(`${picked.length * n} (${n} members × ${picked.length} sessions)`, `${picked.length * n} (${n} सदस्य × ${picked.length} सत्र)`)} />
                     <Row l={t('Sessions', 'सत्र')} v={<div className="flex flex-wrap gap-1.5">{[...picked].sort().map((k) => { const [d, s] = k.split('|'); return <span key={k} className="rounded-full bg-saffron-100 px-2.5 py-1 text-xs font-bold text-saffron-600">{fmtDate(d, lang, { day: 'numeric', month: 'long' })} · {t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</span> })}</div>} />
                   </div>
                   <Check2 on={ok.satvik} err={errs.satvik} onChange={(v) => setOk({ ...ok, satvik: v })}>{t('All members are vegetarian / sattvik and will follow the yagya rules.', 'सभी सदस्य शाकाहारी/सात्विक हैं और यज्ञ के नियमों का पालन करेंगे।')}</Check2>

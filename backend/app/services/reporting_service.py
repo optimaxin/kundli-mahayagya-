@@ -266,10 +266,12 @@ class ReportingService:
         with timer.stage("dashboard.db"):
             summary = self.session_summary(sessions)
             in_scope = select(BookingSession.booking_id).where(BookingSession.session_id.in_(ids))
-            n_bookings, n_confirmed, n_members = db.execute(
+            n_bookings, n_confirmed, n_unique, n_members = db.execute(
                 select(
                     select(func.count()).select_from(Booking).where(Booking.id.in_(in_scope)).scalar_subquery(),
                     select(func.count()).select_from(Booking)
+                    .where(Booking.id.in_(in_scope), Booking.status == "CONFIRMED").scalar_subquery(),
+                    select(func.count(func.distinct(Booking.primary_mobile)))
                     .where(Booking.id.in_(in_scope), Booking.status == "CONFIRMED").scalar_subquery(),
                     select(func.count()).select_from(FamilyMember)
                     .where(FamilyMember.booking_id.in_(in_scope)).scalar_subquery(),
@@ -282,7 +284,9 @@ class ReportingService:
             "Generated at (IST)": clock.now(),
             "Total family bookings": n_bookings,
             "Confirmed family bookings": n_confirmed,
+            "Unique families (distinct primary mobile, confirmed)": n_unique,
             "Total unique registered members": n_members,
+            "Family-session reservations (confirmed)": sum(r["confirmed_families"] for r in summary),
             "Attendee-session reservations (confirmed)": sum(r["registered_members"] for r in summary),
             "Actual check-ins": sum(r["checkins"] for r in summary),
             "No-shows (completed sessions only)": sum(r["no_shows"] or 0 for r in summary),
@@ -295,7 +299,7 @@ class ReportingService:
         counts: dict[str, int] = {}
         with XlsxStream(tmp, tz=clock.event_tz()) as book:
             # 1. Dashboard
-            dash = _Sheet(book, "Dashboard", ["Metric", "Value"], [42, 30], timer, "dashboard")
+            dash = _Sheet(book, "Dashboard", ["Metric", "Value"], [52, 30], timer, "dashboard")
             for k, v in totals.items():
                 dash.add([k, v])
             dash.add([])

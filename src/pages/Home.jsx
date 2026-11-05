@@ -78,6 +78,21 @@ export default function Home() {
         </div>
       </section>
 
+      {/* GURUS */}
+      <section className="mx-auto max-w-6xl px-4 mt-20">
+        <Reveal className="text-center">
+          <h2 className="font-display text-3xl md:text-5xl text-maroon-900">{t('Pujya Sants', 'पूज्य संतगण')}</h2>
+          <Divider className="mt-3" />
+        </Reveal>
+        <div className="mt-8 grid grid-cols-3 gap-2 sm:mt-10 sm:gap-5">
+          {['/gurus/1.jpg', '/gurus/2.png', '/gurus/3.png'].map((src, i) => (
+            <Reveal key={src} delay={i * .1} className="overflow-hidden rounded-xl border border-gold-300/60 bg-white shadow-[0_10px_30px_-12px_rgba(122,26,45,.25)] sm:rounded-3xl">
+              <img src={src} loading="lazy" alt="" className="aspect-[4/5] w-full object-cover object-top" />
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
       {/* HOW IT WORKS */}
       <section className="mx-auto max-w-6xl px-4 mt-20">
         <Reveal className="text-center">

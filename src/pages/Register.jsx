@@ -342,7 +342,7 @@ export default function Register() {
 // Public status labels for the session picker. Deliberately no seat counts.
 const STATUS = {
   AVAILABLE: [['Booking available', 'बुकिंग उपलब्ध'], 'text-emerald-700'],
-  NOT_FOR_THIS_FAMILY: [['Not available for this family', 'इस परिवार के लिए उपलब्ध नहीं'], 'text-saffron-600'],
+  NOT_FOR_THIS_FAMILY: [['Fully booked', 'बुकिंग पूर्ण'], 'text-saffron-600'],
   FULL: [['Session full', 'सत्र पूर्ण'], 'text-red-600'],
   CLOSED: [['Booking closed', 'बुकिंग बंद'], 'text-stone-500'],
   error: [['Could not load', 'लोड नहीं हो सका'], 'text-red-600'],

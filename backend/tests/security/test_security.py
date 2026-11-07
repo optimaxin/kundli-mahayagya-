@@ -30,6 +30,7 @@ STAFF_GET_ENDPOINTS = [
     "/api/v1/bookings/MY26-AAAAAAAA",
     "/api/v1/family-members?booking_number=MY26-AAAAAAAA",
     "/api/v1/sessions/1",
+    "/api/v1/sessions/capacity",
     "/api/v1/sessions/1/kunds",
     "/api/v1/kunds/1",
     "/api/v1/checkins",

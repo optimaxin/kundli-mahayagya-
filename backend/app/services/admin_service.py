@@ -108,6 +108,40 @@ class AdminService:
             )
         return out
 
+    def public_session_availability(self, family_size: int) -> list[dict[str, Any]]:
+        """Public session picker: per session, can a family of ``family_size`` be seated together?
+
+        No counts are returned (no remaining places, no reserved, no Kund occupancy, no largest free
+        block); staff use :meth:`session_availability` for those.
+        """
+        repo = SessionRepository(self.db)
+        stats = repo.capacity_stats()
+        out = []
+        for s in repo.list_all():
+            st = stats.get(s.id)
+            booking_open = session_service.booking_block_reason(s) is None
+            availability = session_service.family_availability(
+                booking_open=booking_open,
+                largest_free_block=st.largest_free_block if st else 0,
+                family_size=family_size,
+            )
+            out.append(
+                {
+                    "id": s.id,
+                    "event_date": s.event_date,
+                    "slot": s.slot,
+                    "start_time": s.start_time,
+                    "end_time": s.end_time,
+                    "status": s.status,
+                    "is_active": s.is_active,
+                    "booking_open": booking_open,
+                    "family_size": family_size,
+                    "availability": availability,
+                    "fits_family": availability == session_service.AVAILABLE,
+                }
+            )
+        return out
+
     def session_detail(self, session_id: int) -> dict[str, Any]:
         sessions = {s["id"]: s for s in self.session_availability()}
         if session_id not in sessions:

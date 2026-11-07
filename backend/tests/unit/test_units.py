@@ -154,3 +154,35 @@ def test_excel_formula_injection_neutralised() -> None:
     with XlsxStream(buf) as book, book.sheet("S", ["h"]) as sheet:
         sheet.append(["=1+1", "+91 phone", "normal", 5])
     assert [c.value for c in load_workbook(io.BytesIO(buf.getvalue()))["S"][2]] == ["'=1+1", "'+91 phone", "normal", 5]
+
+
+# ------------------------------------------------- family-size availability (public picker)
+@pytest.mark.parametrize(
+    ("booking_open", "largest_free_block", "family_size", "expected"),
+    [
+        (True, 1, 1, "AVAILABLE"),  # one place left fits a family of one
+        (True, 1, 2, "NOT_FOR_THIS_FAMILY"),  # ... but not a family of two (Kund is NOT full)
+        (True, 1, 3, "NOT_FOR_THIS_FAMILY"),
+        (True, 5, 3, "AVAILABLE"),  # another Kund with 5 free seats a family of three
+        (True, 8, 8, "AVAILABLE"),  # an empty Kund seats a family of eight
+        (True, 7, 8, "NOT_FOR_THIS_FAMILY"),
+        (True, 0, 1, "FULL"),  # no Kund has any place: no valid family can book
+        (True, 0, 8, "FULL"),
+        (False, 8, 1, "CLOSED"),  # closed wins over capacity
+        (False, 0, 1, "CLOSED"),
+    ],
+)
+def test_family_availability(booking_open: bool, largest_free_block: int, family_size: int, expected: str) -> None:
+    from app.services.session_service import family_availability
+
+    assert family_availability(
+        booking_open=booking_open, largest_free_block=largest_free_block, family_size=family_size
+    ) == expected
+
+
+@pytest.mark.parametrize("family_size", [0, 9, -1])
+def test_family_availability_rejects_invalid_family_size(family_size: int) -> None:
+    from app.services.session_service import family_availability
+
+    with pytest.raises(ValueError):
+        family_availability(booking_open=True, largest_free_block=8, family_size=family_size)

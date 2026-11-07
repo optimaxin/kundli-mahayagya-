@@ -118,60 +118,83 @@ export const allSlots = () => EVENT.dates.flatMap((date) => Object.keys(EVENT.se
 export const slotId = (date, session) => slotCache[sk(date, session)]?.id ?? EVENT.dates.indexOf(date) * 2 + (session === 'morning' ? 1 : 2)
 export const slotOf = (id) => ({ date: EVENT.dates[Math.floor((id - 1) / 2)], session: id % 2 ? 'morning' : 'afternoon' })
 
+// Public availability is computed by the server for ONE family size: a session is AVAILABLE only if a
+// single Kund can seat the whole family. The server returns no seat counts. The result is a hint for the
+// picker; the Kund is chosen and locked by the server when the booking is confirmed.
+//   AVAILABLE | NOT_FOR_THIS_FAMILY | FULL (no family of any size fits) | CLOSED (booking not open)
 let slotCache = {}
+let slotFamily = null // family size slotCache was computed for (null = nothing loaded yet)
+let slotWanted = null // family size of the latest request; older responses are dropped
 let slotVersion = 0
 const slotListeners = new Set()
+const notifySlots = () => { slotVersion++; slotListeners.forEach((fn) => fn(slotVersion)) }
 
 let slotError = null
 // The last error from loadSlots(), or null once availability has loaded successfully.
 export const slotsError = () => slotError
 
-export async function loadSlots() {
+const clampFamily = (n) => Math.min(EVENT.seats, Math.max(1, Math.floor(Number(n)) || 1))
+
+export async function loadSlots(familySize = slotWanted ?? 1) {
+  const n = clampFamily(familySize)
+  slotWanted = n
+  if (slotFamily !== n) { slotCache = {}; slotFamily = null; notifySlots() } // never show another size's result
   let data
   try {
-    ({ data } = await request('/sessions', { retries: 1 }))
+    ({ data } = await request(`/sessions?family_size=${n}`, { retries: 1 }))
     if (!Array.isArray(data)) throw new ApiError(0, 'BAD_RESPONSE', 'Unexpected response from the server')
   } catch (err) {
-    slotError = err
-    slotVersion++
-    slotListeners.forEach((fn) => fn(slotVersion))
+    if (slotWanted === n) { slotError = err; notifySlots() }
     throw err
   }
+  if (slotWanted !== n) return slotCache // the family size changed while this request was in flight
   slotError = null
   const next = {}
   for (const s of data) {
-    next[sk(s.event_date, slotUi(s.slot))] = {
-      id: s.id, used: s.reserved, capacity: s.total_capacity, left: s.remaining, full: s.kunds_full,
-      blocked: s.kunds_blocked || 0, empty: s.kunds_empty,
-      partial: Math.max(0, EVENT.kunds - s.kunds_empty - s.kunds_full - (s.kunds_blocked || 0)),
-      largest: s.largest_family_bookable, open: s.booking_open,
-    }
+    if (s.family_size !== n) continue
+    next[sk(s.event_date, slotUi(s.slot))] = { id: s.id, open: s.booking_open, status: s.availability, fits: s.fits_family }
   }
   slotCache = next
-  slotVersion++
-  slotListeners.forEach((fn) => fn(slotVersion))
+  slotFamily = n
+  notifySlots()
   return slotCache
 }
 
-// React hook: keeps seat availability fresh. Returns a version number to use as a memo dependency.
-export function useSlots(intervalMs = 30000) {
+// React hook: keeps availability for `familySize` fresh (re-fetched at once when the size changes).
+// Pass null to stop polling. Returns a version number to use as a memo dependency.
+export function useSlots(intervalMs = 30000, familySize = 1) {
   const [v, setV] = useState(slotVersion)
   useEffect(() => {
     slotListeners.add(setV)
-    loadSlots().catch(() => {})
-    const i = setInterval(() => loadSlots().catch(() => {}), intervalMs)
+    if (familySize == null) return () => slotListeners.delete(setV)
+    loadSlots(familySize).catch(() => {})
+    const i = setInterval(() => loadSlots(familySize).catch(() => {}), intervalMs)
     return () => { slotListeners.delete(setV); clearInterval(i) }
-  }, [intervalMs])
+  }, [intervalMs, familySize])
   return v
 }
 
-export function slotStats(date, session) {
-  const c = slotCache[sk(date, session)]
+// Availability of one session for a family of n: { status, open }.
+// status is 'loading' until the server has answered for exactly this family size, 'error' if it could not.
+export function slotAvailability(date, session, n) {
+  const c = slotFamily === clampFamily(n) ? slotCache[sk(date, session)] : null
   if (c) return c
-  const capacity = EVENT.kunds * EVENT.seats
-  return { id: slotId(date, session), used: 0, capacity, left: capacity, full: 0, partial: 0, blocked: 0, empty: EVENT.kunds, largest: 0, open: false, loading: true }
+  return { id: slotId(date, session), status: slotError ? 'error' : 'loading', open: false, fits: false }
 }
-export const canFit = (date, session, n) => { const c = slotCache[sk(date, session)]; return !!c && c.open && c.largest >= n }
+export const canFit = (date, session, n) => slotAvailability(date, session, n).status === 'AVAILABLE'
+
+// Staff only (ADMIN/SUPERVISOR): exact per-session capacity for the Kund map and dashboards.
+export async function sessionCapacity(date, session) {
+  const { data } = await request('/sessions/capacity', { auth: 'admin' })
+  const s = data.find((x) => x.event_date === date && slotUi(x.slot) === session)
+  if (!s) return null
+  return {
+    id: s.id, used: s.reserved, capacity: s.total_capacity, left: s.remaining, full: s.kunds_full,
+    blocked: s.kunds_blocked || 0, empty: s.kunds_empty,
+    partial: Math.max(0, EVENT.kunds - s.kunds_empty - s.kunds_full - (s.kunds_blocked || 0)),
+    largest: s.largest_family_bookable, open: s.booking_open,
+  }
+}
 
 // QR is valid only inside the session window (+-15 min), in India time.
 export const slotWindow = (date, session) => {
@@ -236,14 +259,14 @@ export async function createBooking({ coordinator: c, members, slots }, idempote
       slots: data.reservations.map((r) => ({ date: r.event_date, session: slotUi(r.slot), kund: r.kund_number, status: r.status, checkedIn: 0, attended: false, attendedAt: null })),
     }
     if (b.token) rememberPass(b, c.mobile)
-    loadSlots().catch(() => {})
+    loadSlots(members.length).catch(() => {})
     return b
   } catch (err) {
     if (err instanceof ApiError && err.code === 'CAPACITY_UNAVAILABLE') {
       const ids = err.details?.unavailable_sessions || []
       const full = (err.details?.availability || []).filter((a) => !a.fits_this_family).map((a) => a.session_id)
       const keys = [...new Set([...ids, ...full])].map((id) => { const s = slotOf(id); return sk(s.date, s.session) })
-      loadSlots().catch(() => {})
+      loadSlots(members.length).catch(() => {})
       const e = new Error(`FULL:${keys.join(',')}`)
       e.api = err
       throw e
@@ -377,7 +400,6 @@ export async function kundFamilies(date, session, kund) {
 }
 export async function toggleBlock(date, session, kund, blocked) {
   const r = await request(`/sessions/${slotId(date, session)}/kunds/${kund}/block`, { method: 'POST', auth: 'admin', body: { blocked } })
-  loadSlots().catch(() => {})
   return r.data
 }
 

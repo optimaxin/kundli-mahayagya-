@@ -69,7 +69,8 @@ def test_no_available_kund(client, db: Session) -> None:  # type: ignore[no-unty
     register_ok(client, members=7)
     r = register(client, members=2)
     assert r.status_code == 409
-    assert r.json()["error"]["details"]["availability"][0]["largest_family_bookable"] == 1
+    assert r.json()["error"]["details"]["availability"][0] == {
+        "session_id": 1, "availability": "NOT_FOR_THIS_FAMILY", "fits_this_family": False}
     register_ok(client, members=1)  # exactly fills Kund 1
     assert reserved(db, 1, 1) == 8
     assert register(client, members=1).status_code == 409

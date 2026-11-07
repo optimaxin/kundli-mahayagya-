@@ -22,7 +22,9 @@
 ```json
 { "success": false,
   "error": { "code": "CAPACITY_UNAVAILABLE", "message": "No Kund has 4 free place(s) together in session 2",
-             "details": { "unavailable_sessions": [2], "availability": [ ... ] } },
+             "details": { "unavailable_sessions": [2],
+                          "availability": [ { "session_id": 2, "availability": "NOT_FOR_THIS_FAMILY",
+                                              "fits_this_family": false } ] } },
   "request_id": "6f1c…" }
 ```
 
@@ -52,7 +54,7 @@ last 30 min; scanner tokens last 8 h.
 | `GET /scanner/me`, `GET /scanner/recent`, `POST /scanner/scan`, `POST /scanner/checkin` | | ✓ (own session) | ✓ (`session_id` required) | ✓ (`session_id` required) |
 | `POST /qr/validate` | | ✓ | ✓ | ✓ |
 | `GET /bookings…`, `GET /family-members`, `POST /bookings/{bn}/cancel` | | | ✓ | ✓ |
-| `GET /sessions/{id}`, `/sessions/{id}/kunds`, `/kunds/{n}`, `GET /checkins` | | | ✓ | ✓ |
+| `GET /sessions/capacity`, `GET /sessions/{id}`, `/sessions/{id}/kunds`, `/kunds/{n}`, `GET /checkins` | | | ✓ | ✓ |
 | `POST /qr/{bn}/regenerate`, `POST /qr/{bn}/revoke` | | | ✓ | ✓ |
 | `GET /admin/dashboard`, `GET /admin/analytics` | | | ✓ | ✓ |
 | `/reports/*` (Excel exports, downloads, summary): personal data of every family | | | | ✓ |
@@ -142,9 +144,17 @@ Behaviour:
 
 ### Sessions and Kunds
 
-* `GET /sessions` (public): the 16 sessions with `total_capacity`, `reserved`, `remaining`,
-  `kunds_empty`, `kunds_full`, `largest_family_bookable` and `booking_open`. Use this to
-  render the session picker.
+* `GET /sessions?family_size=N` (public, `N` = 1–8, default 1; anything else → 422): the 16
+  sessions with `booking_open`, `family_size`, `fits_family` and `availability`:
+  `AVAILABLE` (at least one Kund can seat the whole family together), `NOT_FOR_THIS_FAMILY`
+  (places remain, but no single Kund fits this family; a smaller family may still fit), `FULL`
+  (no Kund has any free place) or `CLOSED` (not open for booking). **No capacity numbers are
+  returned** (no remaining or reserved places, no Kund occupancy). The frontend passes the number
+  of family members already entered on the form. This is informational only: the Kund is picked
+  by best fit and locked inside the booking transaction, which re-checks everything.
+* `GET /sessions/capacity` (ADMIN, SUPERVISOR): exact per-session capacity — `total_capacity`,
+  `reserved`, `remaining`, `kunds_empty`, `kunds_full`, `kunds_blocked`,
+  `largest_family_bookable`, `booking_open`. Used by the organiser Kund map.
 * `GET /sessions/{id}`: adds families, check-ins and, after the session ends, `no_shows`.
 * `PATCH /sessions/{id}` `{status?, is_active?}` (ADMIN, audited). Capacity is not editable
   through the API.

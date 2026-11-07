@@ -11,7 +11,7 @@ from app.core.errors import NotFound
 from app.core.permissions import request_context, require_admin, require_staff
 from app.core.rate_limit import rate_limit
 from app.models import AdminUser, EventSession
-from app.schemas.booking import SessionAvailabilityOut
+from app.schemas.booking import PublicSessionAvailabilityOut, SessionAvailabilityOut
 from app.schemas.common import ApiResponse, Pagination, ok, pagination_params
 from app.services.admin_service import AdminService
 from app.services.audit_service import audit
@@ -23,15 +23,27 @@ kund_router = APIRouter(prefix="/kunds", tags=["kunds"])
 
 @router.get(
     "",
-    response_model=ApiResponse[list[SessionAvailabilityOut]],
+    response_model=ApiResponse[list[PublicSessionAvailabilityOut]],
     dependencies=[Depends(rate_limit("public-read", "RATE_LIMIT_PUBLIC_READ"))],
 )
-def list_sessions(db: Session = Depends(get_db)) -> dict:
-    """Public: the 16 sessions with remaining capacity (no personal data).
+def list_sessions(
+    family_size: int = Query(
+        1, ge=1, le=8, description="Number of family members (1-8) that must be seated together in one Kund"
+    ),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Public: the 16 sessions and whether a family of ``family_size`` can book each one.
 
-    ``largest_family_bookable`` is the largest family that still fits in a
-    single Kund -- use it in the UI to disable sessions a family cannot book.
+    Returns no capacity numbers (remaining places, reserved counts, Kund occupancy). A session is
+    ``AVAILABLE`` only if at least one Kund can seat the whole family together. This is informational:
+    the Kund is chosen and locked by the server when the booking is confirmed.
     """
+    return ok(AdminService(db).public_session_availability(family_size))
+
+
+@router.get("/capacity", response_model=ApiResponse[list[SessionAvailabilityOut]])
+def sessions_capacity(_: AdminUser = Depends(require_staff), db: Session = Depends(get_db)) -> dict:
+    """ADMIN / SUPERVISOR: exact per-session capacity (reserved, remaining, Kunds empty/full/blocked)."""
     return ok(AdminService(db).session_availability())
 
 

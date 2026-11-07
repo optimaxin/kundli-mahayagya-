@@ -10,8 +10,8 @@ import { Area, Columns, Donut, HBars, Heat, PAL, StackedBars } from '../componen
 import {
   EVENT, ZONES, kundLabel, sectorOf, cancelBooking, addStaff, analytics, currentAuth, describeError, exportBookings, fmtDate, kundFamilies,
   kundMap, signIn, logout, markEntered, removeStaff, activateStaff, resetStaffPassword, generateAndDownloadReport,
-  searchBookings, slotOf,
-  slotStats, slotWindow, staffList, toggleBlock, updateStaff, usePoll, useSlots, zoneRange,
+  searchBookings, sessionCapacity, slotOf,
+  slotWindow, staffList, toggleBlock, updateStaff, usePoll, zoneRange,
 } from '../lib/db.js'
 
 const nf = (n) => (n ?? 0).toLocaleString('en-IN')
@@ -312,7 +312,6 @@ function AdminScanner() {
 
 function KundMap() {
   const { t, lang } = useLang()
-  useSlots(15000)
   const [date, setDate] = useState(EVENT.dates[0])
   const [sess, setSess] = useState('morning')
   const [zone, setZone] = useState(0)
@@ -322,20 +321,22 @@ function KundMap() {
   const [map, reload, error] = usePoll(() => kundMap(date, sess), 8000, [date, sess])
   useEffect(() => { setFams([]); if (sel) kundFamilies(date, sess, sel).then(setFams).catch(() => {}) }, [sel, date, sess])
   const occ = map?.occ || {}, blocked = map?.blocked || {}, inactive = map?.inactive || {}
-  const st = slotStats(date, sess)
+  // Exact Kund counts come from the staff-only capacity endpoint (the public API no longer exposes them).
+  const [cap, reloadCap] = usePoll(() => sessionCapacity(date, sess), 15000, [date, sess])
+  const st = cap || {}
   const [a, z] = zoneRange(zone)
   const cells = Array.from({ length: z - a + 1 }, (_, i) => a + i)
   const color = (k) => blocked[k] || inactive[k] ? 'bg-slate-800 text-white' : !occ[k] ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : occ[k] >= EVENT.seats ? 'bg-maroon-700 text-white' : 'bg-saffron-400 text-maroon-950'
   const block = async () => {
     setMsg('')
-    try { await toggleBlock(date, sess, sel, !blocked[sel]); reload() } catch (x) { setMsg(describeError(x, t)) }
+    try { await toggleBlock(date, sess, sel, !blocked[sel]); reload(); reloadCap() } catch (x) { setMsg(describeError(x, t)) }
   }
   return (
     <>
       <H sub={t('Tap a kund for families; block empty kunds', 'कुंड दबाकर परिवार देखें; खाली कुंड बंद करें')} right={<div className="flex gap-2"><Sel value={date} onChange={(e) => { setDate(e.target.value); setSel(null) }}>{EVENT.dates.map((d) => <option key={d} value={d}>{fmtDate(d, lang)}</option>)}</Sel><Sel value={sess} onChange={(e) => { setSess(e.target.value); setSel(null) }}>{Object.keys(EVENT.sessions).map((s) => <option key={s} value={s}>{t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</option>)}</Sel></div>}>{t('Kund map', 'कुंड मानचित्र')}</H>
       <ErrorNote error={error} />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[[PAL.emerald, t('Empty', 'खाली'), st.empty], [PAL.saffron, t('Partly filled', 'आंशिक'), st.partial], [PAL.maroon, t('Full', 'पूर्ण'), st.full], ['#1e293b', t('Blocked', 'बंद'), st.blocked]].map(([c, l, n]) => <div key={l} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><i className="size-3 rounded-full" style={{ background: c }} /><div><div className="text-lg font-bold tabular-nums leading-none">{nf(n)}</div><div className="text-xs text-slate-500">{l}</div></div></div>)}
+        {[[PAL.emerald, t('Empty', 'खाली'), st.empty], [PAL.saffron, t('Partly filled', 'आंशिक'), st.partial], [PAL.maroon, t('Full', 'पूर्ण'), st.full], ['#1e293b', t('Blocked', 'बंद'), st.blocked]].map(([c, l, n]) => <div key={l} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><i className="size-3 rounded-full" style={{ background: c }} /><div><div className="text-lg font-bold tabular-nums leading-none">{cap ? nf(n) : '–'}</div><div className="text-xs text-slate-500">{l}</div></div></div>)}
       </div>
       <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1">
         {ZONES.map(([en, hi], i) => <button key={en} onClick={() => { setZone(i); setSel(null) }} className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition ${zone === i ? 'bg-maroon-800 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{t(en, hi)}</button>)}

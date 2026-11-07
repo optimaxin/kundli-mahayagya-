@@ -1,10 +1,10 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Flame, Plus, Trash2, User, Users, CalendarCheck, ClipboardCheck, Sunrise, Sunset, AlertCircle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Flame, Plus, Trash2, User, Users, CalendarCheck, ClipboardCheck, Sunrise, Sunset, AlertCircle, Info } from 'lucide-react'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Field, inputCls } from '../components/ui.jsx'
-import { EVENT, canFit, createBooking, describeError, fmtDate, fmtTime, loadSlots, newKey, slotStats, slotsError, useSlots } from '../lib/db.js'
+import { EVENT, createBooking, describeError, fmtDate, fmtTime, loadSlots, newKey, slotAvailability, slotsError, useSlots } from '../lib/db.js'
 
 const STATES = ['Uttar Pradesh', 'Delhi', 'Rajasthan', 'Madhya Pradesh', 'Haryana', 'Uttarakhand', 'Bihar', 'Gujarat', 'Maharashtra', 'Punjab', 'Himachal Pradesh', 'Jharkhand', 'Chhattisgarh', 'West Bengal', 'Karnataka', 'Tamil Nadu', 'Telangana', 'Andhra Pradesh', 'Kerala', 'Odisha', 'Assam', 'Other']
 const RELS = [['Spouse', 'पति / पत्नी'], ['Parent', 'माता / पिता'], ['Child', 'पुत्र / पुत्री'], ['Sibling', 'भाई / बहन'], ['Relative', 'संबंधी'], ['Friend', 'मित्र / साधक']]
@@ -47,15 +47,27 @@ export default function Register() {
   const [members, setMembers] = useState([{ age: '', gender: 'male', relationship: 'Self', mobile: '' }])
   const [picked, setPicked] = useState([])
   const [ok, setOk] = useState({ satvik: false, consent: false })
-  const slotsVer = useSlots()
+  // Family size = the members already entered on the family step (the coordinator is member 1).
+  // Availability is asked from the server for exactly this size once the session step is reached, and
+  // again whenever the size changes; results for another size are never shown.
+  const n = members.length
+  const slotsVer = useSlots(30000, step >= 2 ? n : null)
   // One idempotency key per submission attempt; reused if the network drops so a retry never double-books.
   const keyRef = useRef(newKey())
 
   const setCF = (k) => (e) => setC((p) => ({ ...p, [k]: k === 'mobile' || k === 'alt' ? digits(e.target.value) : e.target.value }))
   const setM = (i, patch) => setMembers((p) => p.map((m, j) => (j === i ? { ...m, ...patch } : m)))
-  const n = members.length
-  const key = (s) => `${s.date}|${s.session}`
-  const fits = useMemo(() => Object.fromEntries(EVENT.dates.flatMap((d) => Object.keys(EVENT.sessions).map((s) => [`${d}|${s}`, canFit(d, s, n)]))), [n, step, slotsVer])
+  const avail = useMemo(() => Object.fromEntries(EVENT.dates.flatMap((d) => Object.keys(EVENT.sessions).map((s) => [`${d}|${s}`, slotAvailability(d, s, n)]))), [n, slotsVer])
+  const fits = useMemo(() => Object.fromEntries(Object.entries(avail).map(([k, a]) => [k, a.status === 'AVAILABLE'])), [avail])
+  // Drop picked sessions the server now says cannot seat this family together (e.g. a member was added
+  // after picking, or the last suitable Kund was taken). 'loading' / 'error' are not definitive: keep.
+  useEffect(() => {
+    const gone = picked.filter((k) => ['NOT_FOR_THIS_FAMILY', 'FULL', 'CLOSED'].includes(avail[k]?.status))
+    if (!gone.length) return
+    setPicked((p) => p.filter((k) => !gone.includes(k)))
+    setBanner(t(`${gone.length} selected session(s) can no longer seat your ${n}-member family together and were removed. Please choose again.`, `${gone.length} चुने गए सत्र में अब आपके ${n} सदस्यीय परिवार के लिए एक साथ स्थान नहीं है, इसलिए उन्हें हटा दिया गया। कृपया पुनः चुनें।`))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [avail])
 
   const labels = [
     [t('You', 'आप'), User], [t('Family', 'परिवार'), Users], [t('Session', 'सत्र'), CalendarCheck], [t('Confirm', 'पुष्टि'), ClipboardCheck],
@@ -100,6 +112,7 @@ export default function Register() {
 
   const submit = async () => {
     if (!validate(3)) return
+    if (!picked.length) { setDir(-1); setStep(2); setErrs({ slots: t('Pick at least one session', 'कम से कम एक सत्र चुनें') }); return }
     setBusy(true)
     setBanner('')
     try {
@@ -114,7 +127,7 @@ export default function Register() {
       setBusy(false)
       if (String(err.message).startsWith('FULL:')) {
         keyRef.current = newKey()
-        setBanner(t('Sorry, a selected session just became full. Please choose another.', 'क्षमा करें, चुना गया सत्र अभी भर गया। कृपया दूसरा चुनें।'))
+        setBanner(t('Sorry, a selected session can no longer seat your whole family together. Please choose another.', 'क्षमा करें, चुने गए सत्र में अब आपके पूरे परिवार के लिए एक साथ स्थान उपलब्ध नहीं है। कृपया दूसरा सत्र चुनें।'))
         setPicked((p) => p.filter((k) => !String(err.message).includes(k)))
         setDir(-1); setStep(2)
         return
@@ -227,12 +240,28 @@ export default function Register() {
 
               {step === 2 && (
                 <div className="space-y-5">
-                  <Head h={t('Choose day & session', 'दिन व सत्र चुनें')} p={t(`Seats shown are for your ${n}-member family. On each day you can pick the morning, the afternoon or both sessions, and as many days as you like. Each selected session gets its own Kund.`, `आपके ${n} सदस्यों के अनुसार उपलब्धता। हर दिन प्रातः, अपराह्न या दोनों सत्र चुन सकते हैं, और जितने चाहें उतने दिन। हर चुने गए सत्र के लिए अलग कुंड आवंटित होगा।`)} />
+                  <Head h={t('Choose day & session', 'दिन व सत्र चुनें')} p={t(`Availability is shown for your ${n}-member family. On each day you can pick the morning, the afternoon or both sessions, and as many days as you like. Each selected session gets its own Kund.`, `उपलब्धता आपके ${n} सदस्यीय परिवार के अनुसार दिखाई गई है। हर दिन प्रातः, अपराह्न या दोनों सत्र चुन सकते हैं, और जितने चाहें उतने दिन। हर चुने गए सत्र के लिए अलग कुंड आवंटित होगा।`)} />
+                  <div className="overflow-hidden rounded-2xl border border-gold-300/70 bg-gradient-to-r from-maroon-800 to-maroon-900 text-white">
+                    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-gold-400 text-maroon-950"><Users size={20} /></span>
+                        <div>
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-gold-300">{t('Your family', 'आपका परिवार')}</div>
+                          <div className="font-display text-xl leading-tight">{t(`${n} member${n > 1 ? 's' : ''}`, `${n} सदस्य`)}</div>
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => go(-1)} className="rounded-full border border-gold-300/60 px-3.5 py-1.5 text-xs font-bold text-gold-300 transition hover:bg-white/10 active:scale-95">{t('Edit family', 'परिवार बदलें')}</button>
+                    </div>
+                    <div className="flex gap-2 border-t border-white/10 bg-black/10 px-4 py-2.5 text-sm text-maroon-50">
+                      <Info size={16} className="mt-0.5 shrink-0 text-gold-300" />
+                      <span>{t('The same Kund will be allotted to all members of your family.', 'आपके परिवार के सभी सदस्यों के लिए एक ही कुंड आवंटित किया जाएगा।')}</span>
+                    </div>
+                  </div>
                   {slotsError() && !Object.values(fits).some(Boolean) && (
                     <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
                       <AlertCircle size={18} className="shrink-0" />
-                      <span className="min-w-0 flex-1">{t('Could not load seat availability. Please check your internet connection.', 'आसन उपलब्धता लोड नहीं हो सकी। कृपया इंटरनेट कनेक्शन जाँचें।')} <span className="font-normal">({describeError(slotsError(), t)})</span></span>
-                      <button type="button" onClick={() => loadSlots().catch(() => {})} className="rounded-full bg-white px-4 py-2 text-xs font-bold text-red-700 ring-1 ring-red-200 active:scale-95">{t('Try again', 'पुनः प्रयास करें')}</button>
+                      <span className="min-w-0 flex-1">{t('Could not load session availability. Please check your internet connection.', 'सत्र उपलब्धता लोड नहीं हो सकी। कृपया इंटरनेट कनेक्शन जाँचें।')} <span className="font-normal">({describeError(slotsError(), t)})</span></span>
+                      <button type="button" onClick={() => loadSlots(n).catch(() => {})} className="rounded-full bg-white px-4 py-2 text-xs font-bold text-red-700 ring-1 ring-red-200 active:scale-95">{t('Try again', 'पुनः प्रयास करें')}</button>
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
@@ -248,8 +277,8 @@ export default function Register() {
                           <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{fmtDate(d, lang, { weekday: 'short' })}</div>
                         </div>
                         {Object.keys(EVENT.sessions).map((s) => {
-                          const st = slotStats(d, s), k = `${d}|${s}`, can = fits[k], on = picked.includes(k)
-                          const pct = st.capacity ? Math.min(100, Math.round((st.used / st.capacity) * 100)) : 100
+                          const k = `${d}|${s}`, st = avail[k], can = fits[k], on = picked.includes(k)
+                          const [label, tone] = STATUS[st.status] || STATUS.loading
                           return (
                             <button key={s} type="button" disabled={!can} onClick={() => toggleSlot(d, s)} className={`relative overflow-hidden rounded-2xl border-2 p-2.5 text-left transition active:scale-[.97] ${on ? 'border-saffron-500 bg-saffron-50 shadow-md' : can ? 'border-stone-200 bg-white hover:border-saffron-300' : 'border-stone-200 bg-stone-100 opacity-60'}`}>
                               <div className="flex items-center justify-between">
@@ -257,8 +286,10 @@ export default function Register() {
                                 {on && <Check size={16} className="rounded-full bg-saffron-500 p-0.5 text-white" />}
                               </div>
                               <div className="mt-0.5 text-[11px] text-stone-500">{fmtTime(EVENT.sessions[s].start)}</div>
-                              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-200"><div className={`h-full ${pct > 85 ? 'bg-red-500' : pct > 60 ? 'bg-saffron-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} /></div>
-                              <div className={`mt-1 text-[11px] font-bold ${can ? 'text-stone-600' : 'text-red-600'}`}>{st.loading ? (slotsError() ? t('Unavailable', 'उपलब्ध नहीं') : t('Loading…', 'लोड हो रहा है…')) : can ? t(`${st.left.toLocaleString('en-IN')} seats left`, `${st.left.toLocaleString('en-IN')} आसन शेष`) : !st.open && st.left > 0 ? t('Closed', 'बंद') : t('Full', 'पूर्ण')}</div>
+                              <div className={`mt-1.5 flex items-start gap-1.5 text-[11px] font-bold leading-snug ${tone}`}>
+                                <span className="mt-[3px] size-2 shrink-0 rounded-full bg-current" />
+                                <span>{t(...label)}</span>
+                              </div>
                             </button>
                           )
                         })}
@@ -306,6 +337,16 @@ export default function Register() {
       </div>
     </div>
   )
+}
+
+// Public status labels for the session picker. Deliberately no seat counts.
+const STATUS = {
+  AVAILABLE: [['Booking available', 'बुकिंग उपलब्ध'], 'text-emerald-700'],
+  NOT_FOR_THIS_FAMILY: [['Not available for this family', 'इस परिवार के लिए उपलब्ध नहीं'], 'text-saffron-600'],
+  FULL: [['Session full', 'सत्र पूर्ण'], 'text-red-600'],
+  CLOSED: [['Booking closed', 'बुकिंग बंद'], 'text-stone-500'],
+  error: [['Could not load', 'लोड नहीं हो सका'], 'text-red-600'],
+  loading: [['Checking…', 'जाँच हो रही है…'], 'text-stone-400'],
 }
 
 const Head = ({ h, p }) => (<div><h2 className="font-display text-2xl text-maroon-900 md:text-3xl">{h}</h2><p className="mt-1 text-sm text-stone-600">{p}</p></div>)

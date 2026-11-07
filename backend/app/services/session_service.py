@@ -31,6 +31,37 @@ def booking_block_reason(session: EventSession, now: datetime | None = None) -> 
     return None
 
 
+MAX_FAMILY_SIZE = 8
+
+# Public, family-specific availability states. They deliberately carry no numbers: the public site
+# must not learn how many places are left, only whether THIS family can be seated together.
+AVAILABLE = "AVAILABLE"  # at least one Kund can hold the whole family
+NOT_FOR_THIS_FAMILY = "NOT_FOR_THIS_FAMILY"  # places remain, but no single Kund fits this family
+FULL = "FULL"  # no Kund has even one free place: no family of any valid size can book
+CLOSED = "CLOSED"  # not open for booking (inactive, closed, past the cut-off)
+
+
+def family_availability(*, booking_open: bool, largest_free_block: int, family_size: int) -> str:
+    """Classify one session for one family size.
+
+    ``largest_free_block`` is the most free places in any single usable Kund of the session. A family
+    fits only if one Kund can take ALL its members, so the total number of free places is irrelevant:
+    a Kund with one place left is eligible for a family of 1 but not for a family of 2, and is never
+    treated as "full" while it can still take a smaller family.
+
+    Informational only. The authoritative check is the locked best-fit allocation at booking time.
+    """
+    if not 1 <= family_size <= MAX_FAMILY_SIZE:
+        raise ValueError("family_size must be between 1 and 8")
+    if not booking_open:
+        return CLOSED
+    if largest_free_block <= 0:
+        return FULL
+    if largest_free_block < family_size:
+        return NOT_FOR_THIS_FAMILY
+    return AVAILABLE
+
+
 def checkin_window_open(session: EventSession, now: datetime | None = None) -> bool:
     settings = get_settings()
     if not settings.ENFORCE_CHECKIN_WINDOW:

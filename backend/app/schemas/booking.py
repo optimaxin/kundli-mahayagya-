@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, time
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -20,7 +21,25 @@ class SessionOut(BaseModel):
     is_active: bool
 
 
+class PublicSessionAvailabilityOut(SessionOut):
+    """Public session picker row. Carries NO capacity numbers by design."""
+
+    booking_open: bool
+    family_size: int = Field(..., description="Family size this availability was computed for (1-8)")
+    availability: Literal["AVAILABLE", "NOT_FOR_THIS_FAMILY", "FULL", "CLOSED"] = Field(
+        ...,
+        description=(
+            "AVAILABLE: at least one Kund can seat the whole family together. "
+            "NOT_FOR_THIS_FAMILY: places remain but no single Kund fits this family (a smaller family may still fit). "
+            "FULL: no Kund has any free place. CLOSED: not open for booking."
+        ),
+    )
+    fits_family: bool = Field(..., description="Shorthand for availability == AVAILABLE. Informational only.")
+
+
 class SessionAvailabilityOut(SessionOut):
+    """Staff-only capacity view (ADMIN / SUPERVISOR)."""
+
     total_capacity: int
     reserved: int
     remaining: int

@@ -49,7 +49,7 @@ def test_sessions_endpoint_shape_for_frontend(client) -> None:  # type: ignore[n
     s = client.get("/api/v1/sessions").json()["data"]
     assert [(x["slot"], x["start_time"], x["end_time"]) for x in s[:2]] == [
         ("MORNING", "08:00:00", "11:00:00"), ("AFTERNOON", "13:00:00", "16:00:00")]
-    assert s[0]["kunds_blocked"] == 0 and s[0]["booking_open"] is True
+    assert s[0]["booking_open"] is True and s[0]["availability"] == "AVAILABLE" and s[0]["fits_family"] is True
 
 
 # -------------------------------------------------------------- QR pass
@@ -155,7 +155,8 @@ def test_kund_map_and_per_session_block(client, db: Session, admin_token: str) -
     fam = register_ok(client, members=4, sessions=[1, 3])  # session 1: K1 has 3 free -> K3 (K2 blocked)
     assert {r["session_id"]: r["kund_number"] for r in fam["reservations"]} == {1: 3, 3: 1}
     assert reserved(db, 1, 2) == 0
-    s1 = next(s for s in client.get("/api/v1/sessions").json()["data"] if s["id"] == 1)
+    s1 = next(s for s in client.get("/api/v1/sessions/capacity", headers=auth(admin_token)).json()["data"]
+              if s["id"] == 1)
     assert s1["kunds_blocked"] == 2149 and s1["total_capacity"] == 2 * 8 + 0  # K1 + K3 usable
     client.post("/api/v1/sessions/1/kunds/2/block", json={"blocked": False}, headers=auth(admin_token))
     assert client.get("/api/v1/sessions/1/kund-map", headers=auth(admin_token)).json()["data"]["blocked"] == []

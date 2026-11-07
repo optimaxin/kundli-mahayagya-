@@ -262,15 +262,24 @@ class RegistrationService:
         return RegistrationResult(result_payload, replayed=False)
 
     def availability(self, session_ids: list[int], family_size: int) -> list[dict[str, Any]]:
-        """Non-locking availability snapshot used to explain a capacity failure."""
+        """Non-locking availability snapshot used to explain a capacity failure.
+
+        Public response: says only whether THIS family fits each selected session, never how many
+        places are left or the largest free block.
+        """
         self.db.rollback()
-        stats = SessionRepository(self.db).capacity_stats(session_ids)
-        return [
-            {
-                "session_id": sid,
-                "remaining_places": stats[sid].remaining if sid in stats else 0,
-                "largest_family_bookable": stats[sid].largest_free_block if sid in stats else 0,
-                "fits_this_family": bool(sid in stats and stats[sid].largest_free_block >= family_size),
-            }
-            for sid in session_ids
-        ]
+        repo = SessionRepository(self.db)
+        stats = repo.capacity_stats(session_ids)
+        sessions = {s.id: s for s in repo.get_many(session_ids)}
+        out = []
+        for sid in session_ids:
+            s = sessions.get(sid)
+            state = session_service.family_availability(
+                booking_open=s is not None and session_service.booking_block_reason(s) is None,
+                largest_free_block=stats[sid].largest_free_block if sid in stats else 0,
+                family_size=family_size,
+            )
+            out.append(
+                {"session_id": sid, "availability": state, "fits_this_family": state == session_service.AVAILABLE}
+            )
+        return out

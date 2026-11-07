@@ -898,8 +898,56 @@
           "sessions"
         ],
         "summary": "List Sessions",
-        "description": "Public: the 16 sessions with remaining capacity (no personal data).\n\n``largest_family_bookable`` is the largest family that still fits in a\nsingle Kund -- use it in the UI to disable sessions a family cannot book.",
+        "description": "Public: the 16 sessions and whether a family of ``family_size`` can book each one.\n\nReturns no capacity numbers (remaining places, reserved counts, Kund occupancy). A session is\n``AVAILABLE`` only if at least one Kund can seat the whole family together. This is informational:\nthe Kund is chosen and locked by the server when the booking is confirmed.",
         "operationId": "list_sessions_api_v1_sessions_get",
+        "parameters": [
+          {
+            "name": "family_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 8,
+              "minimum": 1,
+              "description": "Number of family members (1-8) that must be seated together in one Kund",
+              "default": 1,
+              "title": "Family Size"
+            },
+            "description": "Number of family members (1-8) that must be seated together in one Kund"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_PublicSessionAvailabilityOut__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/capacity": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Sessions Capacity",
+        "description": "ADMIN / SUPERVISOR: exact per-session capacity (reserved, remaining, Kunds empty/full/blocked).",
+        "operationId": "sessions_capacity_api_v1_sessions_capacity_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -911,7 +959,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/sessions/{session_id}": {
@@ -3248,6 +3301,42 @@
         ],
         "title": "ApiResponse[list[FamilyMemberOut]]"
       },
+      "ApiResponse_list_PublicSessionAvailabilityOut__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "const": true,
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PublicSessionAvailabilityOut"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "ApiResponse[list[PublicSessionAvailabilityOut]]"
+      },
       "ApiResponse_list_SessionAvailabilityOut__": {
         "properties": {
           "success": {
@@ -4830,6 +4919,82 @@
         ],
         "title": "PassTokenIn"
       },
+      "PublicSessionAvailabilityOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "event_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Event Date"
+          },
+          "slot": {
+            "type": "string",
+            "title": "Slot"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "time",
+            "title": "End Time"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "booking_open": {
+            "type": "boolean",
+            "title": "Booking Open"
+          },
+          "family_size": {
+            "type": "integer",
+            "title": "Family Size",
+            "description": "Family size this availability was computed for (1-8)"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "NOT_FOR_THIS_FAMILY",
+              "FULL",
+              "CLOSED"
+            ],
+            "title": "Availability",
+            "description": "AVAILABLE: at least one Kund can seat the whole family together. NOT_FOR_THIS_FAMILY: places remain but no single Kund fits this family (a smaller family may still fit). FULL: no Kund has any free place. CLOSED: not open for booking."
+          },
+          "fits_family": {
+            "type": "boolean",
+            "title": "Fits Family",
+            "description": "Shorthand for availability == AVAILABLE. Informational only."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_date",
+          "slot",
+          "start_time",
+          "end_time",
+          "status",
+          "is_active",
+          "booking_open",
+          "family_size",
+          "availability",
+          "fits_family"
+        ],
+        "title": "PublicSessionAvailabilityOut",
+        "description": "Public session picker row. Carries NO capacity numbers by design."
+      },
       "QrPassOut": {
         "properties": {
           "token": {
@@ -5489,7 +5654,8 @@
           "largest_family_bookable",
           "booking_open"
         ],
-        "title": "SessionAvailabilityOut"
+        "title": "SessionAvailabilityOut",
+        "description": "Staff-only capacity view (ADMIN / SUPERVISOR)."
       },
       "SessionUpdate": {
         "properties": {

@@ -28,6 +28,16 @@ def test_public_session_availability(client) -> None:  # type: ignore[no-untyped
     data = client.get("/api/v1/sessions").json()["data"]
     assert len(data) == 16
     s1 = data[0]
+    assert s1["availability"] == "AVAILABLE" and s1["fits_family"] is True and s1["family_size"] == 1
+    for hidden in ("total_capacity", "reserved", "remaining", "kunds_full", "kunds_empty", "largest_family_bookable"):
+        assert hidden not in s1, hidden
+
+
+def test_staff_session_capacity_has_exact_numbers(client, supervisor_token: str) -> None:  # type: ignore[no-untyped-def]
+    register_ok(client, members=8, sessions=[1])
+    data = client.get("/api/v1/sessions/capacity", headers=auth(supervisor_token)).json()["data"]
+    assert len(data) == 16
+    s1 = data[0]
     assert s1["total_capacity"] == 17208 and s1["reserved"] == 8 and s1["remaining"] == 17200
     assert s1["kunds_full"] == 1 and s1["kunds_empty"] == 2150 and s1["largest_family_bookable"] == 8
 

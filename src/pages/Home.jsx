@@ -103,7 +103,7 @@ export default function Home() {
           {[
             [Users, t('Your details', 'आपका विवरण'), t('Name, mobile and city. Takes 30 seconds.', 'नाम, मोबाइल व शहर। केवल 30 सेकंड।')],
             [HeartHandshake, t('Add family', 'परिवार जोड़ें'), t('Up to 8 members. All seat together.', '8 सदस्यों तक। सब साथ बैठेंगे।')],
-            [Sunrise, t('Pick day & session', 'दिन व सत्र चुनें'), t('See live seats left. Choose one or many days.', 'शेष आसन लाइव देखें। एक या अनेक दिन चुनें।')],
+            [Sunrise, t('Pick day & session', 'दिन व सत्र चुनें'), t('See which sessions can seat your whole family together. Choose one or many days.', 'देखें कौन से सत्र आपके पूरे परिवार के लिए उपलब्ध हैं। एक या अनेक दिन चुनें।')],
             [QrCode, t('Get your QR pass', 'QR प्रवेश पत्र पाएँ'), t('Download as PDF. Show it at the gate.', 'PDF डाउनलोड करें। द्वार पर दिखाएँ।')],
           ].map(([Icon, h, p], i) => (
             <Reveal key={h} delay={i * .1} className="group relative rounded-3xl bg-white p-6 border border-maroon-100 hover:border-saffron-400 hover:-translate-y-1 transition shadow-sm hover:shadow-xl">

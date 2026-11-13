@@ -71,7 +71,7 @@ export default function Admin() {
       <aside className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:sticky md:top-16 md:block md:h-[calc(100vh-4rem)] md:overflow-visible md:border-0 md:bg-slate-950 md:p-4 md:text-slate-300">
         <div className="mb-5 hidden items-center gap-2.5 px-2 py-2 md:flex"><Om size={36} /><div className="leading-tight"><div className="text-sm font-bold text-white">{t('Mahayagya', 'महायज्ञ')}</div><div className="text-[11px] text-slate-400">{auth.user?.name || auth.role}</div></div></div>
         {tabs.map(([k, l, Icon]) => (
-          <button key={k} onClick={() => setTab(k)} className={`relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-center text-[10.5px] font-semibold leading-tight md:mb-1 md:min-h-0 md:justify-start md:text-left md:leading-normal md:w-full md:flex-none md:flex-row md:gap-3 md:rounded-xl md:px-3 md:py-2.5 md:text-sm ${tab === k ? 'text-maroon-800 md:bg-white/10 md:text-white' : 'text-slate-500 md:text-slate-400 md:hover:bg-white/5'}`}>
+          <button key={k} onClick={() => setTab(k)} className={`relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0 py-2 text-center text-[10px] font-semibold min-[360px]:px-0.5 min-[360px]:text-[10.5px] leading-tight md:mb-1 md:min-h-0 md:justify-start md:text-left md:leading-normal md:w-full md:flex-none md:flex-row md:gap-3 md:rounded-xl md:px-3 md:py-2.5 md:text-sm ${tab === k ? 'text-maroon-800 md:bg-white/10 md:text-white' : 'text-slate-500 md:text-slate-400 md:hover:bg-white/5'}`}>
             {tab === k && <span className="absolute left-0 hidden h-6 w-1 rounded-r bg-saffron-500 md:block" />}
             <Icon size={19} className="shrink-0" /><span className="max-w-full">{l}</span>
           </button>
@@ -438,16 +438,16 @@ function Volunteers() {
             {(list || []).map((s) => (
               <div key={s.id} className="py-3">
                 {/* [avatar | name, email | count]; the session picker gets its own full-width row on phones */}
-                <div className={`grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 sm:grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,16rem)_auto] ${s.active ? '' : 'opacity-60'}`}>
+                <div className={`grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 xl:grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,16rem)_auto] ${s.active ? '' : 'opacity-60'}`}>
                   <span className="grid size-10 place-items-center rounded-full bg-maroon-50 font-bold text-maroon-800">{s.name[0]}</span>
                   <div className="min-w-0">
                     <div className="font-semibold leading-snug [overflow-wrap:anywhere]">{s.name} <span className="ml-1 inline-block whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold leading-tight text-slate-600">{roleLabel(s.role)}</span>{!s.active && <span className="ml-1 inline-block whitespace-nowrap rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-bold leading-tight text-red-600">{t('Deactivated', 'निष्क्रिय')}</span>}</div>
                     <div className="text-xs text-slate-500 [overflow-wrap:anywhere]">{s.email}</div>
                   </div>
-                  {s.role === 'SCANNER' && <div className="col-span-full row-start-2 min-w-0 sm:col-span-1 sm:col-start-3 sm:row-start-1">{s.active
+                  {s.role === 'SCANNER' && <div className="col-span-full row-start-2 min-w-0 xl:col-span-1 xl:col-start-3 xl:row-start-1">{s.active
                     ? <Sel className="w-full" value={s.sessionId || ''} onChange={(e) => act(() => updateStaff(s.id, { assigned_session_id: Number(e.target.value) }))}>{!s.sessionId && <option value="">{sessName(null)}</option>}{SESSION_IDS.map((id) => <option key={id} value={id}>{sessName(id)}</option>)}</Sel>
                     : <span className="text-xs text-slate-500">{sessName(s.sessionId)}</span>}</div>}
-                  <div className="col-start-3 row-start-1 text-right sm:col-start-4"><div className="text-lg font-bold tabular-nums text-emerald-600">{done[s.name] || 0}</div><div className="text-[11px] text-slate-500">{t('entered', 'प्रवेश')}</div></div>
+                  <div className="col-start-3 row-start-1 text-right xl:col-start-4"><div className="text-lg font-bold tabular-nums text-emerald-600">{done[s.name] || 0}</div><div className="text-[11px] text-slate-500">{t('entered', 'प्रवेश')}</div></div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2 sm:pl-[52px]">
                   {s.active && <button onClick={() => { setResetFor(resetFor === s.id ? null : s.id); setResetPw('') }} className="flex min-h-10 items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"><KeyRound size={14} />{t('Reset password', 'पासवर्ड बदलें')}</button>}

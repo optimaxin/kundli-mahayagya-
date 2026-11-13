@@ -134,7 +134,7 @@ export default function Ticket() {
           <div className="relative overflow-hidden bg-gradient-to-br from-maroon-800 via-maroon-900 to-maroon-950 px-6 pt-7 pb-6 text-center text-white">
             <Mandala className="absolute -right-16 -top-16 w-64 opacity-25" rings={3} />
             <Om size={52} className="mx-auto" />
-            <div className="font-display mt-1 text-3xl gold-text">{t(EVENT.nameEn, EVENT.nameHi)}</div>
+            <div className="font-display mt-1 text-2xl gold-text min-[360px]:text-3xl">{t(EVENT.nameEn, EVENT.nameHi)}</div>
             <div className="mt-1 text-xs font-bold uppercase tracking-[.25em] text-maroon-200">{t('Devotional E-Pass', 'प्रवेश पत्र')}</div>
           </div>
 

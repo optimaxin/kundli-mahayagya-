@@ -2,7 +2,20 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useLang } from '../lib/lang.jsx'
+import { kundParts } from '../lib/db.js'
 import { Flame, Ticket, UserPlus, ShieldCheck } from 'lucide-react'
+
+// "Zone Brahma · Sector 2 · Kund #45" that wraps only between its parts, never inside one
+// (so "Kund" and "#45" stay together). The separator stays at the end of the earlier line.
+export function KundTag({ k, className = '' }) {
+  const { t } = useLang()
+  const parts = kundParts(k, t)
+  return (
+    <span className={className}>
+      {parts.map((p, i) => <span key={i}><span className="whitespace-nowrap">{p}{i < parts.length - 1 ? ' ·' : ''}</span>{i < parts.length - 1 ? ' ' : ''}</span>)}
+    </span>
+  )
+}
 
 // Procedural mandala: concentric petal rings, pure SVG, no assets
 export function Mandala({ className = '', stroke = '#e5b94a', rings = 4 }) {
@@ -37,7 +50,7 @@ export function Divider({ className = '' }) {
 // Brand mark: Om on a maroon disc with a gold ring
 export function Om({ size = 40, className = '' }) {
   return (
-    <span className={`grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-maroon-700 to-maroon-950 text-gold-300 shadow-md ring-2 ring-gold-400/70 ${className}`} style={{ width: size, height: size }}>
+    <span className={`grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-maroon-700 to-maroon-950 text-gold-300 shadow-md ring-2 ring-gold-400/70 ${className}`} style={{ width: size, height: size, aspectRatio: '1' }}>
       <span style={{ fontSize: size * 0.62, lineHeight: 1, fontFamily: 'Hind, "Noto Sans Devanagari", sans-serif', fontWeight: 600, marginTop: -size * 0.04 }}>ॐ</span>
     </span>
   )
@@ -54,11 +67,11 @@ export function Navbar() {
   const links = [['/', t('Home', 'मुख्य'), true], ['/register', t('Register', 'पंजीकरण')], ['/find', t('My pass', 'प्रवेश पत्र')]]
   return (
     <header className={`sticky top-0 z-40 transition-all ${scrolled ? 'glass border-b border-gold-300/60 shadow-[0_8px_30px_-12px_rgba(67,13,25,.25)]' : 'bg-cream/90 backdrop-blur border-b border-transparent'}`}>
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-3 sm:px-4">
+      <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-2 px-3 py-1.5 sm:px-4">
         <Link to="/" className="flex min-w-0 items-center gap-2.5">
           <Om size={42} />
           <span className="min-w-0 leading-tight">
-            <span className="font-display block truncate text-[15px] text-maroon-900 sm:text-lg">{t('2151 Kundiya Mahayagya', '2151 कुंडीय महायज्ञ')}</span>
+            <span className="font-display line-clamp-2 block text-[15px] leading-tight text-maroon-900 sm:text-lg">{t('2151 Kundiya Mahayagya', '2151 कुंडीय महायज्ञ')}</span>
             <span className="block truncate text-[10px] font-bold uppercase tracking-wider text-saffron-600 sm:text-[11px]">{t('Agra · 14–21 Dec 2026', 'आगरा · 14–21 दिसंबर 2026')}</span>
           </span>
         </Link>
@@ -71,10 +84,10 @@ export function Navbar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <div className="flex rounded-full border-2 border-maroon-800 bg-white p-0.5 text-sm font-bold shadow-sm" role="group" aria-label="Language">
             {[['hi', 'हिन्दी'], ['en', 'English']].map(([k, l]) => (
-              <button key={k} onClick={() => setLang(k)} aria-pressed={lang === k} className={`rounded-full px-3 py-2 transition sm:px-4 ${lang === k ? 'bg-maroon-800 text-gold-300 shadow' : 'text-maroon-800 hover:bg-maroon-50'}`}>{l}</button>
+              <button key={k} onClick={() => setLang(k)} aria-pressed={lang === k} className={`min-h-10 rounded-full px-2.5 py-1.5 transition min-[380px]:px-3 sm:px-4 ${lang === k ? 'bg-maroon-800 text-gold-300 shadow' : 'text-maroon-800 hover:bg-maroon-50'}`}>{l}</button>
             ))}
           </div>
           <Link to="/register" className="hidden rounded-full bg-gradient-to-b from-saffron-500 to-saffron-600 px-5 py-2.5 text-sm font-bold text-white shadow-[0_6px_16px_-6px_rgba(217,95,12,.7)] transition hover:brightness-110 active:scale-95 sm:inline-flex">{t('Register now', 'पंजीकरण करें')}</Link>
@@ -121,10 +134,16 @@ export function Btn({ as: As = 'button', variant = 'primary', className = '', ..
     maroon: 'bg-gradient-to-b from-maroon-700 to-maroon-900 text-gold-300 shadow-[0_8px_20px_-6px_rgba(67,13,25,.6)] hover:brightness-110',
     ghost: 'bg-white text-maroon-800 border border-maroon-200 hover:bg-maroon-50',
   }[variant]
+  // In Tailwind the stylesheet order, not the class order, decides between two classes for the same
+  // property (e.g. "px-6 px-4" renders px-6). So a default is only added when the caller did not set it.
+  const has = (re) => re.test(className)
+  const pad = has(/(^|\s)!?px-/) ? '' : 'px-6'
+  const minH = has(/(^|\s)!?min-h-/) ? '' : 'min-h-12'
+  const size = has(/(^|\s)!?text-(xs|sm|base|lg|[0-9]*xl|\[\d)/) ? '' : 'text-[15px]'
   return (
     <As
       {...p}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl px-6 min-h-12 font-bold text-[15px] transition active:scale-[.97] disabled:opacity-50 disabled:pointer-events-none ${v} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-2xl font-bold transition active:scale-[.97] disabled:opacity-50 disabled:pointer-events-none ${pad} ${minH} ${size} ${v} ${className}`}
     />
   )
 }

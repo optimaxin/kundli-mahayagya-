@@ -28,8 +28,10 @@ export const zoneOf = (k) => Math.min(EVENT.zones - 1, Math.floor((k - 1) / PER_
 export const zoneRange = (z) => [z * PER_ZONE + 1, Math.min(EVENT.kunds, (z + 1) * PER_ZONE)]
 // 11 zones x 5 sectors: sectors 1-4 hold 39 kunds, sector 5 holds the rest of the zone (40; the last zone is 5 short of 2151).
 export const sectorOf = (k) => { const o = (k - 1) % PER_ZONE; return o >= 156 ? 4 : Math.floor(o / 39) }
-// "Zone Brahma · Sector 2 · Kund #45" for tickets, scanner and admin lists. `t` is the useLang translator.
-export const kundLabel = (k, t) => { const z = ZONES[zoneOf(k)]; return `${t('Zone', 'क्षेत्र')} ${t(z[0], z[1])} · ${t('Sector', 'सेक्टर')} ${sectorOf(k) + 1} · ${t('Kund', 'कुंड')} #${k}` }
+// ['Zone Brahma', 'Sector 2', 'Kund #45']: the parts of a Kund allocation (see KundTag in components/ui.jsx).
+export const kundParts = (k, t) => { const z = ZONES[zoneOf(k)]; return [`${t('Zone', 'क्षेत्र')} ${t(z[0], z[1])}`, `${t('Sector', 'सेक्टर')} ${sectorOf(k) + 1}`, `${t('Kund', 'कुंड')} #${k}`] }
+// "Zone Brahma · Sector 2 · Kund #45" as plain text (titles, CSV). `t` is the useLang translator.
+export const kundLabel = (k, t) => kundParts(k, t).join(' · ')
 
 // ------------------------------------------------------------------ HTTP
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '')

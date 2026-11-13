@@ -4,11 +4,11 @@ import { LayoutDashboard, List, ScanLine, Grid3x3, Settings, LogOut, Users, Armc
 import { Link } from 'react-router-dom'
 import Staff from './Staff.jsx'
 import { useLang } from '../lib/lang.jsx'
-import { Btn, Mandala, Om } from '../components/ui.jsx'
+import { Btn, KundTag, Mandala, Om } from '../components/ui.jsx'
 import Scanner from '../components/Scanner.jsx'
 import { Area, Columns, Donut, HBars, Heat, PAL, StackedBars } from '../components/charts.jsx'
 import {
-  EVENT, ZONES, kundLabel, sectorOf, cancelBooking, addStaff, analytics, currentAuth, describeError, exportBookings, fmtDate, kundFamilies,
+  EVENT, ZONES, sectorOf, cancelBooking, addStaff, analytics, currentAuth, describeError, exportBookings, fmtDate, kundFamilies,
   kundMap, signIn, logout, markEntered, removeStaff, activateStaff, resetStaffPassword, generateAndDownloadReport,
   searchBookings, sessionCapacity, slotOf,
   slotWindow, staffList, toggleBlock, updateStaff, usePoll, zoneRange,
@@ -68,12 +68,12 @@ export default function Admin() {
   ]
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-slate-100 text-slate-800 md:grid md:grid-cols-[236px_1fr]">
-      <aside className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white md:sticky md:top-16 md:block md:h-[calc(100vh-4rem)] md:overflow-visible md:border-0 md:bg-slate-950 md:p-4 md:text-slate-300">
+      <aside className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:sticky md:top-16 md:block md:h-[calc(100vh-4rem)] md:overflow-visible md:border-0 md:bg-slate-950 md:p-4 md:text-slate-300">
         <div className="mb-5 hidden items-center gap-2.5 px-2 py-2 md:flex"><Om size={36} /><div className="leading-tight"><div className="text-sm font-bold text-white">{t('Mahayagya', 'महायज्ञ')}</div><div className="text-[11px] text-slate-400">{auth.user?.name || auth.role}</div></div></div>
         {tabs.map(([k, l, Icon]) => (
-          <button key={k} onClick={() => setTab(k)} className={`relative flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-2.5 text-[10px] font-semibold md:mb-1 md:w-full md:flex-none md:flex-row md:gap-3 md:rounded-xl md:px-3 md:py-2.5 md:text-sm ${tab === k ? 'text-maroon-800 md:bg-white/10 md:text-white' : 'text-slate-500 md:text-slate-400 md:hover:bg-white/5'}`}>
+          <button key={k} onClick={() => setTab(k)} className={`relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-center text-[10.5px] font-semibold leading-tight md:mb-1 md:min-h-0 md:justify-start md:text-left md:leading-normal md:w-full md:flex-none md:flex-row md:gap-3 md:rounded-xl md:px-3 md:py-2.5 md:text-sm ${tab === k ? 'text-maroon-800 md:bg-white/10 md:text-white' : 'text-slate-500 md:text-slate-400 md:hover:bg-white/5'}`}>
             {tab === k && <span className="absolute left-0 hidden h-6 w-1 rounded-r bg-saffron-500 md:block" />}
-            <Icon size={19} />{l}
+            <Icon size={19} className="shrink-0" /><span className="max-w-full">{l}</span>
           </button>
         ))}
         <div className="hidden md:mt-6 md:block md:border-t md:border-white/10 md:pt-4">
@@ -81,7 +81,7 @@ export default function Admin() {
           <button onClick={signOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-400 hover:bg-white/5"><LogOut size={19} />{t('Logout', 'लॉगआउट')}</button>
         </div>
       </aside>
-      <main className="min-w-0 p-4 pb-24 md:p-8">
+      <main className="min-w-0 p-4 pb-28 md:p-8">
         <div className="mb-3 flex items-center justify-between md:hidden">
           <Link to="/" className="flex items-center gap-1.5 text-xs font-bold text-slate-500"><Home size={15} />{t('Public site', 'मुख्य साइट')}</Link>
           <button onClick={signOut} className="flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 active:scale-95"><LogOut size={16} />{t('Logout', 'लॉगआउट')}</button>
@@ -99,19 +99,19 @@ export default function Admin() {
 
 const Card = ({ title, sub, right, className = '', children }) => (
   <section className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
-    {(title || right) && <div className="mb-4 flex items-start justify-between gap-3"><div><h2 className="text-[15px] font-bold text-slate-900">{title}</h2>{sub && <p className="text-xs text-slate-500">{sub}</p>}</div>{right}</div>}
+    {(title || right) && <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h2 className="text-[15px] font-bold text-slate-900">{title}</h2>{sub && <p className="text-xs text-slate-500">{sub}</p>}</div>{right}</div>}
     {children}
   </section>
 )
 const H = ({ children, sub, right }) => (<div className="mb-6 flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-[28px]">{children}</h1>{sub && <p className="mt-0.5 text-sm text-slate-500">{sub}</p>}</div>{right}</div>)
-const Sel = (p) => <select {...p} className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium outline-none focus:border-saffron-500" />
+const Sel = ({ className = '', ...p }) => <select {...p} className={`min-h-11 min-w-0 max-w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium outline-none focus:border-saffron-500 ${className}`} />
 const Legend = ({ items }) => <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-slate-600">{items.map(([c, l]) => <span key={l} className="flex items-center gap-1.5"><i className="size-2.5 rounded-full" style={{ background: c }} />{l}</span>)}</div>
 const Loading = () => <div className="grid min-h-40 place-items-center text-sm text-slate-400">…</div>
 const ErrorNote = ({ error }) => { const { t } = useLang(); return error ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{describeError(error, t)}</div> : null }
 
-function SessionPicker({ value, onChange }) {
+function SessionPicker({ value, onChange, className = '' }) {
   const { t, lang } = useLang()
-  return <Sel value={value} onChange={(e) => onChange(Number(e.target.value))}>{SESSION_IDS.map((id) => { const s = slotOf(id); return <option key={id} value={id}>{fmtDate(s.date, lang)} · {t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)}</option> })}</Sel>
+  return <Sel className={className} value={value} onChange={(e) => onChange(Number(e.target.value))}>{SESSION_IDS.map((id) => { const s = slotOf(id); return <option key={id} value={id}>{fmtDate(s.date, lang)} · {t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)}</option> })}</Sel>
 }
 // The session that is on now (or next), for sensible defaults on event days.
 function currentSessionId() {
@@ -122,9 +122,9 @@ function currentSessionId() {
 
 function Kpi({ icon: Icon, label, value, sub, color, bar }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span><span className="grid size-9 place-items-center rounded-xl text-white" style={{ background: color }}><Icon size={18} /></span></div>
-      <div className="mt-3 text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{value}</div>
+    <div className="relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-5">
+      <div className="flex items-start justify-between gap-2"><span className="min-w-0 text-xs font-semibold uppercase leading-snug tracking-wider text-slate-500">{label}</span><span className="grid size-9 shrink-0 place-items-center rounded-xl text-white" style={{ background: color }}><Icon size={18} /></span></div>
+      <div className="mt-3 text-[clamp(1.375rem,6.5vw,1.875rem)] font-bold leading-tight tracking-tight text-slate-900 tabular-nums [overflow-wrap:anywhere]">{value}</div>
       {bar != null ? <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${Math.min(100, bar)}%`, background: color }} /></div> : null}
       {sub && <div className="mt-1.5 text-xs text-slate-500">{sub}</div>}
       <span className="absolute inset-x-0 bottom-0 h-0.5" style={{ background: color }} />
@@ -146,7 +146,7 @@ function Overview({ canExport = false }) {
       <ErrorNote error={error} />
       {a.families === 0 && <div className="mb-5 rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500">{t('No bookings yet.', 'अभी कोई पंजीकरण नहीं।')}</div>}
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Kpi icon={Users} label={t('Families', 'परिवार')} value={nf(a.uniqueFamilies ?? a.families)} sub={`${nf(a.families)} ${t('bookings', 'पंजीकरण')} · ${nf(a.familySessions ?? 0)} ${t('session bookings', 'सत्र बुकिंग')}`} color={PAL.maroon} />
         <Kpi icon={Armchair} label={t('Seats booked', 'बुक आसन')} value={nf(a.seatsUsed)} sub={`${t('of', 'में से')} ${nf(a.seatsTotal)}`} color={PAL.saffron} bar={pct} />
         <Kpi icon={DoorOpen} label={t('Entered', 'प्रवेश')} value={nf(a.entered)} sub={`${entPct.toFixed(0)}% ${t('of booked seats', 'बुक आसनों का')}`} color={PAL.emerald} bar={entPct} />
@@ -186,7 +186,7 @@ function Overview({ canExport = false }) {
         <Card title={t('Check-ins by session', 'सत्र-वार प्रवेश')}>
           <div className="space-y-2">
             {a.days.flatMap((d) => ['morning', 'afternoon'].map((s) => ({ d, s, x: d[s] }))).filter(({ x }) => x.attended).slice(0, 6).map(({ d, s, x }) => (
-              <div key={d.date + s} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"><span className="font-semibold">{fmtDate(d.date, lang, { day: 'numeric', month: 'short' })} · {t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</span><span className="font-bold text-emerald-600 tabular-nums">{x.attended}/{x.used}</span></div>
+              <div key={d.date + s} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm"><span className="min-w-0 font-semibold">{fmtDate(d.date, lang, { day: 'numeric', month: 'short' })} · {t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</span><span className="font-bold text-emerald-600 tabular-nums">{x.attended}/{x.used}</span></div>
             ))}
             {!a.entered && <p className="py-6 text-center text-sm text-slate-400">{t('No entries yet', 'अभी कोई प्रवेश नहीं')}</p>}
           </div>
@@ -250,9 +250,9 @@ function Bookings() {
   }
   return (
     <>
-      <H sub={res ? `${nf(res.total)} ${t('families match', 'परिवार मिले')}` : ''} right={<div className="flex items-center gap-2">{note && <span className="text-xs text-slate-500">{note}</span>}<Btn variant="ghost" onClick={csv} className="min-h-10 px-4 text-sm"><Download size={16} />{t('Export CSV', 'CSV निकालें')}</Btn></div>}>{t('Bookings', 'पंजीकरण')}</H>
+      <H sub={res ? `${nf(res.total)} ${t('families match', 'परिवार मिले')}` : ''} right={<div className="flex flex-wrap items-center gap-2">{note && <span className="text-xs text-slate-500">{note}</span>}<Btn variant="ghost" onClick={csv} className="min-h-11 px-4 text-sm"><Download size={16} />{t('Export CSV', 'CSV निकालें')}</Btn></div>}>{t('Bookings', 'पंजीकरण')}</H>
       <div className="mb-4 flex flex-wrap gap-2">
-        <div className="relative min-w-52 flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search name, mobile, pass ID', 'नाम, मोबाइल, पास आईडी खोजें')} className="min-h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-saffron-500" /></div>
+        <div className="relative min-w-0 basis-full sm:basis-52 sm:flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search name, mobile, pass ID', 'नाम, मोबाइल, पास आईडी खोजें')} className="min-h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-saffron-500" /></div>
         <Sel value={date} onChange={(e) => setDate(e.target.value)}><option value="">{t('All dates', 'सभी तिथियाँ')}</option>{EVENT.dates.map((d) => <option key={d} value={d}>{fmtDate(d, lang)}</option>)}</Sel>
         <Sel value={sess} onChange={(e) => setSess(e.target.value)}><option value="">{t('Both sessions', 'दोनों सत्र')}</option>{Object.keys(EVENT.sessions).map((s) => <option key={s} value={s}>{t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</option>)}</Sel>
       </div>
@@ -262,17 +262,20 @@ function Bookings() {
         {rows.map((b) => (
           <div key={b.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <button onClick={() => setOpen(open === b.id ? null : b.id)} className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50">
-              <span className="font-mono text-sm font-bold text-maroon-800">{b.id}</span>
-              <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{b.coordinator.name}{b.status === 'CANCELLED' && <span className="ml-2 rounded bg-red-100 px-1.5 text-[10px] font-bold text-red-700">{t('CANCELLED', 'रद्द')}</span>}</span><span className="block truncate text-xs text-slate-500">+91 {b.coordinator.mobile} · {b.coordinator.city}</span></span>
-              <span className="rounded-full bg-maroon-50 px-2.5 py-1 text-xs font-bold text-maroon-800"><Users size={11} className="mr-1 inline" />{b.members.length}</span>
-              <span className={`hidden rounded-full px-2.5 py-1 text-xs font-bold sm:block ${b.slots.length && b.slots.every((s) => s.attended) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{b.slots.filter((s) => s.attended).length}/{b.slots.length} ✔</span>
-              <ChevronDown size={18} className={`text-slate-400 transition ${open === b.id ? 'rotate-180' : ''}`} />
+              {/* phones: pass ID above the name; the name wraps instead of being cut off */}
+              <span className="flex min-w-0 flex-1 flex-col gap-x-3 sm:flex-row sm:items-center">
+                <span className="shrink-0 font-mono text-xs font-bold text-maroon-800 sm:text-sm">{b.id}</span>
+                <span className="min-w-0"><span className="block font-semibold leading-snug [overflow-wrap:anywhere]">{b.coordinator.name}{b.status === 'CANCELLED' && <span className="ml-2 inline-block rounded bg-red-100 px-1.5 text-[11px] font-bold text-red-700">{t('CANCELLED', 'रद्द')}</span>}</span><span className="block text-xs leading-snug text-slate-500">+91 {b.coordinator.mobile} · {b.coordinator.city}</span></span>
+              </span>
+              <span className="shrink-0 rounded-full bg-maroon-50 px-2.5 py-1 text-xs font-bold text-maroon-800"><Users size={11} className="mr-1 inline" />{b.members.length}</span>
+              <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-bold sm:block ${b.slots.length && b.slots.every((s) => s.attended) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{b.slots.filter((s) => s.attended).length}/{b.slots.length} ✔</span>
+              <ChevronDown size={18} className={`shrink-0 text-slate-400 transition ${open === b.id ? 'rotate-180' : ''}`} />
             </button>
             {open === b.id && (
               <div className="grid gap-5 border-t border-slate-100 bg-slate-50/60 p-4 md:grid-cols-2">
                 <div>
                   <div className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">{t('Members', 'सदस्य')}</div>
-                  {b.members.map((m, i) => <div key={i} className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span>{m.name}</span><span className="text-slate-500">{m.age ?? '–'} · {m.relationship || '–'}</span></div>)}
+                  {b.members.map((m, i) => <div key={i} className="flex justify-between gap-3 border-b border-slate-100 py-1.5 text-sm"><span className="min-w-0 [overflow-wrap:anywhere]">{m.name}</span><span className="shrink-0 text-right text-slate-500">{m.age ?? '–'} · {m.relationship || '–'}</span></div>)}
                 </div>
                 <div>
                   <div className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">{t('Sessions (tap to mark entry)', 'सत्र (प्रवेश दर्ज करने हेतु दबाएँ)')}</div>
@@ -280,8 +283,8 @@ function Bookings() {
                     const complete = s.checkedIn >= b.members.length
                     const canMark = s.status === 'CONFIRMED' && !complete && Date.now() >= slotWindow(s.date, s.session)[0]
                     return (
-                      <button key={s.date + s.session} disabled={!canMark} onClick={() => enter(b, s)} className={`mb-1.5 flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm font-medium transition ${s.status === 'CANCELLED' ? 'border-red-200 bg-red-50 text-red-700' : s.attended ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white enabled:hover:bg-slate-50'}`}>
-                        <span>{fmtDate(s.date, lang)} · {t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)} · {kundLabel(s.kund, t)}</span>
+                      <button key={s.date + s.session} disabled={!canMark} onClick={() => enter(b, s)} className={`mb-1.5 flex min-h-11 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border px-3 py-2 text-left text-sm font-medium transition ${s.status === 'CANCELLED' ? 'border-red-200 bg-red-50 text-red-700' : s.attended ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white enabled:hover:bg-slate-50'}`}>
+                        <span className="min-w-0 leading-snug">{fmtDate(s.date, lang)} · {t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)} · <KundTag k={s.kund} /></span>
                         {s.status === 'CANCELLED' ? <span className="text-xs">{t('Cancelled', 'रद्द')}</span> : s.attended ? <span className="flex items-center gap-1 text-xs"><Check size={14} />{s.checkedIn}/{b.members.length} · {new Date(s.attendedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}{s.by ? ` · ${s.by}` : ''}</span> : <span className="text-xs text-slate-400">{t('Not entered', 'प्रवेश नहीं')}</span>}
                       </button>
                     )
@@ -333,7 +336,7 @@ function KundMap() {
   }
   return (
     <>
-      <H sub={t('Tap a kund for families; block empty kunds', 'कुंड दबाकर परिवार देखें; खाली कुंड बंद करें')} right={<div className="flex gap-2"><Sel value={date} onChange={(e) => { setDate(e.target.value); setSel(null) }}>{EVENT.dates.map((d) => <option key={d} value={d}>{fmtDate(d, lang)}</option>)}</Sel><Sel value={sess} onChange={(e) => { setSess(e.target.value); setSel(null) }}>{Object.keys(EVENT.sessions).map((s) => <option key={s} value={s}>{t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</option>)}</Sel></div>}>{t('Kund map', 'कुंड मानचित्र')}</H>
+      <H sub={t('Tap a kund for families; block empty kunds', 'कुंड दबाकर परिवार देखें; खाली कुंड बंद करें')} right={<div className="flex flex-wrap gap-2"><Sel value={date} onChange={(e) => { setDate(e.target.value); setSel(null) }}>{EVENT.dates.map((d) => <option key={d} value={d}>{fmtDate(d, lang)}</option>)}</Sel><Sel value={sess} onChange={(e) => { setSess(e.target.value); setSel(null) }}>{Object.keys(EVENT.sessions).map((s) => <option key={s} value={s}>{t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</option>)}</Sel></div>}>{t('Kund map', 'कुंड मानचित्र')}</H>
       <ErrorNote error={error} />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         {[[PAL.emerald, t('Empty', 'खाली'), st.empty], [PAL.saffron, t('Partly filled', 'आंशिक'), st.partial], [PAL.maroon, t('Full', 'पूर्ण'), st.full], ['#1e293b', t('Blocked', 'बंद'), st.blocked]].map(([c, l, n]) => <div key={l} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><i className="size-3 rounded-full" style={{ background: c }} /><div><div className="text-lg font-bold tabular-nums leading-none">{cap ? nf(n) : '–'}</div><div className="text-xs text-slate-500">{l}</div></div></div>)}
@@ -341,7 +344,7 @@ function KundMap() {
       <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1">
         {ZONES.map(([en, hi], i) => <button key={en} onClick={() => { setZone(i); setSel(null) }} className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition ${zone === i ? 'bg-maroon-800 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{t(en, hi)}</button>)}
       </div>
-      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <Card className="!p-3">
           {!map ? <Loading /> : (
             <div className="space-y-4">
@@ -363,8 +366,8 @@ function KundMap() {
           {!sel ? <p className="text-sm text-slate-500">{t('Select a kund.', 'कोई कुंड चुनें।')}</p> : (
             <>
               <div className="text-xl font-bold text-slate-900">{t('Kund', 'कुंड')} #{sel}</div>
-              <div className="text-xs text-slate-500">{kundLabel(sel, t)} · {occ[sel] || 0}/{EVENT.seats} {t('seats', 'आसन')}{inactive[sel] ? ` · ${t('inactive (all sessions)', 'निष्क्रिय (सभी सत्र)')}` : ''}</div>
-              <div className="mt-2 flex gap-1">{Array.from({ length: EVENT.seats }, (_, i) => <span key={i} className={`size-5 rounded-full ${i < (occ[sel] || 0) ? 'bg-maroon-700' : 'bg-slate-200'}`} />)}</div>
+              <div className="text-xs leading-snug text-slate-500"><KundTag k={sel} /> · {occ[sel] || 0}/{EVENT.seats} {t('seats', 'आसन')}{inactive[sel] ? ` · ${t('inactive (all sessions)', 'निष्क्रिय (सभी सत्र)')}` : ''}</div>
+              <div className="mt-2 flex flex-wrap gap-1">{Array.from({ length: EVENT.seats }, (_, i) => <span key={i} className={`size-5 rounded-full ${i < (occ[sel] || 0) ? 'bg-maroon-700' : 'bg-slate-200'}`} />)}</div>
               <div className="mt-3 space-y-2">{fams.map((b) => <div key={b.id} className="rounded-lg bg-slate-50 p-2.5 text-sm"><b>{b.name}</b> · {b.size}<div className="text-xs text-slate-500">{b.id}</div></div>)}</div>
               {!occ[sel] && !inactive[sel] && <Btn variant="ghost" className="mt-4 w-full text-sm" onClick={block}><Ban size={16} />{blocked[sel] ? t('Unblock', 'खोलें') : t('Block this kund', 'कुंड बंद करें')}</Btn>}
               {msg && <p className="mt-2 text-xs font-semibold text-red-600">{msg}</p>}
@@ -410,22 +413,22 @@ function Volunteers() {
     return `${fmtDate(s.date, lang, { day: 'numeric', month: 'short' })} · ${t(EVENT.sessions[s.session].en, EVENT.sessions[s.session].hi)} (${EVENT.sessions[s.session].start}–${EVENT.sessions[s.session].end})`
   }
   const roleLabel = (r) => (r === 'SCANNER' ? t('Gate scanner', 'द्वार स्कैनर') : t('Supervisor', 'पर्यवेक्षक'))
-  const input = 'min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-saffron-500'
+  const input = 'min-h-11 w-full min-w-0 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-saffron-500'
   return (
     <>
       <H sub={t('Gate scanners log in at /staff and can only scan for the session assigned here. Supervisors use this console without volunteer or audit access.', 'द्वार स्कैनर /staff पर लॉगिन करते हैं और केवल यहाँ आवंटित सत्र हेतु स्कैन कर सकते हैं। पर्यवेक्षक इस कंसोल का उपयोग करते हैं (स्वयंसेवक व ऑडिट को छोड़कर)।')}>{t('Volunteers', 'स्वयंसेवक')}</H>
       <ErrorNote error={error} />
       {msg && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{msg}</div>}
       {note && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{note}</div>}
-      <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
         <Card title={t('Add volunteer', 'स्वयंसेवक जोड़ें')}>
           <form onSubmit={add} className="space-y-3">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Name', 'नाम')} className={input} />
             <div className="relative"><Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('Login email', 'लॉगिन ईमेल')} className={`${input} pl-9`} /></div>
             <input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder={t('Initial password (12+ chars, Aa1)', 'प्रारंभिक पासवर्ड (12+ अक्षर, Aa1)')} className={input} />
             {pw && !isStrong(pw) && <p className="text-xs text-slate-500">{t('At least 12 characters with upper-case, lower-case and a digit.', 'कम से कम 12 अक्षर, जिसमें बड़ा अक्षर, छोटा अक्षर व अंक हो।')}</p>}
-            <Sel value={role} onChange={(e) => setRole(e.target.value)}><option value="SCANNER">{roleLabel('SCANNER')}</option><option value="SUPERVISOR">{roleLabel('SUPERVISOR')}</option></Sel>
-            {role === 'SCANNER' && <SessionPicker value={sid} onChange={setSid} />}
+            <Sel className="w-full" value={role} onChange={(e) => setRole(e.target.value)}><option value="SCANNER">{roleLabel('SCANNER')}</option><option value="SUPERVISOR">{roleLabel('SUPERVISOR')}</option></Sel>
+            {role === 'SCANNER' && <SessionPicker className="w-full" value={sid} onChange={setSid} />}
             <Btn type="submit" className="w-full" disabled={adding || !name.trim() || !email.trim() || !isStrong(pw)}><UserPlus size={18} />{adding ? t('Creating…', 'बन रहा है…') : t('Add', 'जोड़ें')}</Btn>
           </form>
         </Card>
@@ -434,26 +437,27 @@ function Volunteers() {
           <div className="divide-y divide-slate-100">
             {(list || []).map((s) => (
               <div key={s.id} className="py-3">
-                <div className={`flex flex-wrap items-center gap-3 ${s.active ? '' : 'opacity-60'}`}>
+                {/* [avatar | name, email | count]; the session picker gets its own full-width row on phones */}
+                <div className={`grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 sm:grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,16rem)_auto] ${s.active ? '' : 'opacity-60'}`}>
                   <span className="grid size-10 place-items-center rounded-full bg-maroon-50 font-bold text-maroon-800">{s.name[0]}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold">{s.name} <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{roleLabel(s.role)}</span>{!s.active && <span className="ml-1 rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-600">{t('Deactivated', 'निष्क्रिय')}</span>}</div>
-                    <div className="truncate text-xs text-slate-500">{s.email}</div>
+                  <div className="min-w-0">
+                    <div className="font-semibold leading-snug [overflow-wrap:anywhere]">{s.name} <span className="ml-1 inline-block whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold leading-tight text-slate-600">{roleLabel(s.role)}</span>{!s.active && <span className="ml-1 inline-block whitespace-nowrap rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-bold leading-tight text-red-600">{t('Deactivated', 'निष्क्रिय')}</span>}</div>
+                    <div className="text-xs text-slate-500 [overflow-wrap:anywhere]">{s.email}</div>
                   </div>
-                  {s.role === 'SCANNER' && (s.active
-                    ? <Sel value={s.sessionId || ''} onChange={(e) => act(() => updateStaff(s.id, { assigned_session_id: Number(e.target.value) }))}>{!s.sessionId && <option value="">{sessName(null)}</option>}{SESSION_IDS.map((id) => <option key={id} value={id}>{sessName(id)}</option>)}</Sel>
-                    : <span className="text-xs text-slate-500">{sessName(s.sessionId)}</span>)}
-                  <div className="text-right"><div className="text-lg font-bold tabular-nums text-emerald-600">{done[s.name] || 0}</div><div className="text-[11px] text-slate-500">{t('entered', 'प्रवेश')}</div></div>
+                  {s.role === 'SCANNER' && <div className="col-span-full row-start-2 min-w-0 sm:col-span-1 sm:col-start-3 sm:row-start-1">{s.active
+                    ? <Sel className="w-full" value={s.sessionId || ''} onChange={(e) => act(() => updateStaff(s.id, { assigned_session_id: Number(e.target.value) }))}>{!s.sessionId && <option value="">{sessName(null)}</option>}{SESSION_IDS.map((id) => <option key={id} value={id}>{sessName(id)}</option>)}</Sel>
+                    : <span className="text-xs text-slate-500">{sessName(s.sessionId)}</span>}</div>}
+                  <div className="col-start-3 row-start-1 text-right sm:col-start-4"><div className="text-lg font-bold tabular-nums text-emerald-600">{done[s.name] || 0}</div><div className="text-[11px] text-slate-500">{t('entered', 'प्रवेश')}</div></div>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-2 pl-[52px]">
-                  {s.active && <button onClick={() => { setResetFor(resetFor === s.id ? null : s.id); setResetPw('') }} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"><KeyRound size={14} />{t('Reset password', 'पासवर्ड बदलें')}</button>}
+                <div className="mt-2 flex flex-wrap gap-2 sm:pl-[52px]">
+                  {s.active && <button onClick={() => { setResetFor(resetFor === s.id ? null : s.id); setResetPw('') }} className="flex min-h-10 items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"><KeyRound size={14} />{t('Reset password', 'पासवर्ड बदलें')}</button>}
                   {s.active
-                    ? <button onClick={() => confirm(t(`Deactivate ${s.name}? Their login stops working immediately.`, `${s.name} को निष्क्रिय करें? उनका लॉगिन तुरंत बंद हो जाएगा।`)) && act(() => removeStaff(s.id))} className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"><Ban size={14} />{t('Deactivate', 'निष्क्रिय करें')}</button>
-                    : <button onClick={() => act(() => activateStaff(s.id))} className="flex items-center gap-1 rounded-lg border border-emerald-200 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"><Check size={14} />{t('Activate', 'सक्रिय करें')}</button>}
+                    ? <button onClick={() => confirm(t(`Deactivate ${s.name}? Their login stops working immediately.`, `${s.name} को निष्क्रिय करें? उनका लॉगिन तुरंत बंद हो जाएगा।`)) && act(() => removeStaff(s.id))} className="flex min-h-10 items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"><Ban size={14} />{t('Deactivate', 'निष्क्रिय करें')}</button>
+                    : <button onClick={() => act(() => activateStaff(s.id))} className="flex min-h-10 items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"><Check size={14} />{t('Activate', 'सक्रिय करें')}</button>}
                 </div>
                 {resetFor === s.id && (
-                  <form onSubmit={(e) => { e.preventDefault(); doReset(s) }} className="mt-2 flex flex-wrap gap-2 pl-[52px]">
-                    <input type="password" autoComplete="new-password" autoFocus value={resetPw} onChange={(e) => setResetPw(e.target.value)} placeholder={t('New password (12+ chars, Aa1)', 'नया पासवर्ड (12+ अक्षर, Aa1)')} className={`${input} max-w-xs`} />
+                  <form onSubmit={(e) => { e.preventDefault(); doReset(s) }} className="mt-2 flex flex-wrap gap-2 sm:pl-[52px]">
+                    <input type="password" autoComplete="new-password" autoFocus value={resetPw} onChange={(e) => setResetPw(e.target.value)} placeholder={t('New password (12+ chars, Aa1)', 'नया पासवर्ड (12+ अक्षर, Aa1)')} className={`${input} sm:max-w-xs`} />
                     <Btn type="submit" className="min-h-11 px-4 text-sm" disabled={!isStrong(resetPw)}>{t('Set password', 'पासवर्ड सेट करें')}</Btn>
                   </form>
                 )}

@@ -168,7 +168,7 @@ export default function Register() {
                   <Head h={t('Who is registering?', 'पंजीकरण कौन कर रहा है?')} p={t('Main yagyakarta (coordinator). Only one form for the whole family.', 'मुख्य यज्ञकर्ता (समन्वयक)। पूरे परिवार का एक ही फॉर्म।')} />
                   <Field label={t('Full name *', 'पूरा नाम *')} error={errs.name}><input className={inputCls(errs.name)} value={c.name} onChange={setCF('name')} placeholder={t('e.g. Ramesh Sharma', 'जैसे रमेश शर्मा')} autoComplete="name" /></Field>
                   <Field label={t('Mobile number *', 'मोबाइल नंबर *')} error={errs.mobile} hint={t('Used to find your pass later', 'प्रवेश पत्र दोबारा खोजने हेतु')}>
-                    <div className="flex gap-2"><span className="grid min-h-12 place-items-center rounded-xl bg-maroon-50 px-3.5 font-bold text-maroon-800">+91</span><input className={inputCls(errs.mobile)} inputMode="numeric" value={c.mobile} onChange={setCF('mobile')} placeholder="98XXXXXXXX" autoComplete="tel" /></div>
+                    <div className="flex gap-2"><span className="grid min-h-12 shrink-0 place-items-center rounded-xl bg-maroon-50 px-3.5 font-bold text-maroon-800">+91</span><input className={inputCls(errs.mobile) + ' min-w-0'} inputMode="numeric" value={c.mobile} onChange={setCF('mobile')} placeholder="98XXXXXXXX" autoComplete="tel" /></div>
                   </Field>
                   <div className="grid gap-5 sm:grid-cols-2">
                     <Field label={t('City *', 'शहर *')} error={errs.city}><input className={inputCls(errs.city)} value={c.city} onChange={setCF('city')} placeholder={t('e.g. Agra', 'जैसे आगरा')} autoComplete="address-level2" /></Field>
@@ -203,9 +203,9 @@ export default function Register() {
                   <AnimatePresence initial={false}>
                     {members.map((m, i) => (
                       <motion.div key={i} layout initial={{ opacity: 0, scale: .96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: .9 }} className="rounded-2xl border border-maroon-100 bg-maroon-50/40 p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                          <span className="inline-flex items-center gap-2 text-sm font-bold text-maroon-900"><span className="grid size-7 place-items-center rounded-full bg-maroon-800 text-xs text-gold-300">{i + 1}</span>{i === 0 ? t('You (Yagyakarta)', 'आप (यज्ञकर्ता)') : t('Member', 'सदस्य')}</span>
-                          {i > 0 && <button onClick={() => setMembers((p) => p.filter((_, j) => j !== i))} className="rounded-full p-2 text-red-500 hover:bg-red-50" aria-label="remove"><Trash2 size={18} /></button>}
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <span className="inline-flex min-w-0 items-center gap-2 text-sm font-bold text-maroon-900"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-maroon-800 text-xs text-gold-300">{i + 1}</span>{i === 0 ? t('You (Yagyakarta)', 'आप (यज्ञकर्ता)') : t('Member', 'सदस्य')}</span>
+                          {i > 0 && <button onClick={() => setMembers((p) => p.filter((_, j) => j !== i))} className="grid size-11 shrink-0 place-items-center rounded-full text-red-500 hover:bg-red-50" aria-label={t('Remove member', 'सदस्य हटाएँ')}><Trash2 size={18} /></button>}
                         </div>
                         <div className="grid gap-3 sm:grid-cols-6">
                           <Field label={t('Name', 'नाम')} error={errs[`n${i}`]} className="sm:col-span-3">
@@ -222,7 +222,7 @@ export default function Register() {
                           {i > 0 && (
                             <Field label={t('Relation', 'संबंध')} className="sm:col-span-6">
                               <div className="flex flex-wrap gap-2">{RELS.map(([en, hi]) => (
-                                <button key={en} type="button" onClick={() => setM(i, { relationship: en })} className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${m.relationship === en ? 'border-saffron-500 bg-saffron-500 text-white' : 'border-stone-300 bg-white text-stone-600'}`}>{t(en, hi)}</button>
+                                <button key={en} type="button" onClick={() => setM(i, { relationship: en })} className={`min-h-10 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${m.relationship === en ? 'border-saffron-500 bg-saffron-500 text-white' : 'border-stone-300 bg-white text-stone-600'}`}>{t(en, hi)}</button>
                               ))}</div>
                             </Field>
                           )}
@@ -271,24 +271,24 @@ export default function Register() {
                   </div>
                   <div className="space-y-2.5">
                     {EVENT.dates.map((d, i) => (
-                      <motion.div key={d} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * .04 }} className="grid grid-cols-[64px_1fr_1fr] items-stretch gap-2 sm:grid-cols-[88px_1fr_1fr]">
+                      <motion.div key={d} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * .04 }} className="grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_minmax(0,1fr)]">
                         <div className="grid place-items-center rounded-2xl bg-maroon-800 py-2 text-center text-gold-300">
                           <div className="font-display text-2xl leading-none">{d.slice(8)}</div>
-                          <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{fmtDate(d, lang, { weekday: 'short' })}</div>
+                          <div className="mt-0.5 text-[11px] font-bold uppercase leading-tight tracking-wider opacity-80">{fmtDate(d, lang, { weekday: 'short' })}</div>
                         </div>
                         {Object.keys(EVENT.sessions).map((s) => {
                           const k = `${d}|${s}`, st = avail[k], can = fits[k], on = picked.includes(k)
                           const [label, tone] = STATUS[st.status] || STATUS.loading
                           return (
                             <button key={s} type="button" disabled={!can} onClick={() => toggleSlot(d, s)} className={`relative overflow-hidden rounded-2xl border-2 p-2.5 text-left transition active:scale-[.97] ${on ? 'border-saffron-500 bg-saffron-50 shadow-md' : can ? 'border-stone-200 bg-white hover:border-saffron-300' : 'border-stone-200 bg-stone-100 opacity-60'}`}>
-                              <div className="flex items-center justify-between">
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-maroon-900">{s === 'morning' ? <Sunrise size={14} /> : <Sunset size={14} />}{t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</span>
-                                {on && <Check size={16} className="rounded-full bg-saffron-500 p-0.5 text-white" />}
+                              <div className="flex items-start justify-between gap-1">
+                                <span className="inline-flex min-w-0 items-center gap-1 text-[13px] font-bold leading-snug text-maroon-900">{s === 'morning' ? <Sunrise size={14} className="shrink-0" /> : <Sunset size={14} className="shrink-0" />}{t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</span>
+                                {on && <Check size={16} className="mt-0.5 shrink-0 rounded-full bg-saffron-500 p-0.5 text-white" />}
                               </div>
-                              <div className="mt-0.5 text-[11px] text-stone-500">{fmtTime(EVENT.sessions[s].start)}</div>
-                              <div className={`mt-1.5 flex items-start gap-1.5 text-[11px] font-bold leading-snug ${tone}`}>
-                                <span className="mt-[3px] size-2 shrink-0 rounded-full bg-current" />
-                                <span>{t(...label)}</span>
+                              <div className="mt-0.5 text-xs text-stone-500 tabular-nums">{fmtTime(EVENT.sessions[s].start)}</div>
+                              <div className={`mt-1.5 flex items-start gap-1.5 text-xs font-bold leading-snug ${tone}`}>
+                                <span className="mt-[5px] size-2 shrink-0 rounded-full bg-current" />
+                                <span className="min-w-0">{t(...label)}</span>
                               </div>
                             </button>
                           )
@@ -350,8 +350,8 @@ const STATUS = {
 }
 
 const Head = ({ h, p }) => (<div><h2 className="font-display text-2xl text-maroon-900 md:text-3xl">{h}</h2><p className="mt-1 text-sm text-stone-600">{p}</p></div>)
-const Chip = (p) => <button type="button" {...p} className="inline-flex items-center gap-1.5 rounded-full border border-maroon-200 bg-white px-3.5 py-2 text-xs font-bold text-maroon-800 transition hover:bg-maroon-50 active:scale-95" />
-const Row = ({ l, v }) => (<div className="grid gap-1 p-4 sm:grid-cols-[120px_1fr]"><span className="text-xs font-bold uppercase tracking-wider text-stone-500">{l}</span><span className="text-sm font-semibold text-maroon-950">{v}</span></div>)
+const Chip = (p) => <button type="button" {...p} className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-maroon-200 bg-white px-3.5 py-2 text-xs font-bold text-maroon-800 transition hover:bg-maroon-50 active:scale-95" />
+const Row = ({ l, v }) => (<div className="grid gap-1 p-4 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-3"><span className="text-xs font-bold uppercase tracking-wider text-stone-500">{l}</span><span className="min-w-0 text-sm font-semibold text-maroon-950 [overflow-wrap:anywhere]">{v}</span></div>)
 const Check2 = ({ on, onChange, err, children }) => (
   <button type="button" onClick={() => onChange(!on)} className={`flex w-full gap-3 rounded-2xl border-2 p-4 text-left text-sm transition ${on ? 'border-emerald-500 bg-emerald-50' : err ? 'border-red-400 bg-red-50' : 'border-stone-200'}`}>
     <span className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-md border-2 ${on ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-stone-300 bg-white'}`}>{on && <Check size={15} />}</span>

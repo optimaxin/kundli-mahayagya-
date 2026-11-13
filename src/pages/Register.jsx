@@ -160,7 +160,7 @@ export default function Register() {
 
         {banner && <div className="mt-5 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700"><AlertCircle size={18} className="shrink-0" />{banner}</div>}
 
-        <div className="relative mt-6 overflow-hidden rounded-[2rem] border border-gold-300/70 bg-white p-5 md:p-8 shadow-[0_20px_50px_-20px_rgba(122,26,45,.35)]">
+        <div className="relative mt-6 overflow-hidden rounded-[2rem] border border-gold-300/70 bg-white p-4 min-[400px]:p-5 md:p-8 shadow-[0_20px_50px_-20px_rgba(122,26,45,.35)]">
           <AnimatePresence mode="wait" custom={dir}>
             <motion.div key={step} custom={dir} variants={slide} initial="enter" animate="center" exit="exit" transition={{ duration: .25 }}>
               {step === 0 && (
@@ -281,11 +281,9 @@ export default function Register() {
                           const [label, tone] = STATUS[st.status] || STATUS.loading
                           return (
                             <button key={s} type="button" disabled={!can} onClick={() => toggleSlot(d, s)} className={`relative overflow-hidden rounded-2xl border-2 p-2.5 text-left transition active:scale-[.97] ${on ? 'border-saffron-500 bg-saffron-50 shadow-md' : can ? 'border-stone-200 bg-white hover:border-saffron-300' : 'border-stone-200 bg-stone-100 opacity-60'}`}>
-                              <div className="flex items-start justify-between gap-1">
-                                <span className="inline-flex min-w-0 items-center gap-1 text-[13px] font-bold leading-snug text-maroon-900">{s === 'morning' ? <Sunrise size={14} className="shrink-0" /> : <Sunset size={14} className="shrink-0" />}{t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</span>
-                                {on && <Check size={16} className="mt-0.5 shrink-0 rounded-full bg-saffron-500 p-0.5 text-white" />}
-                              </div>
-                              <div className="mt-0.5 text-xs text-stone-500 tabular-nums">{fmtTime(EVENT.sessions[s].start)}</div>
+                              {/* the tick lives on the time row so it can never clip the session name */}
+                              <span className="flex min-w-0 items-center gap-1 text-[13px] font-bold leading-snug text-maroon-900">{s === 'morning' ? <Sunrise size={14} className="hidden shrink-0 min-[400px]:block" /> : <Sunset size={14} className="hidden shrink-0 min-[400px]:block" />}<span className="min-w-0">{t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</span></span>
+                              <div className="mt-0.5 flex items-center justify-between gap-1 text-xs tabular-nums text-stone-500"><span>{fmtTime(EVENT.sessions[s].start)}</span>{on && <Check size={16} className="shrink-0 rounded-full bg-saffron-500 p-0.5 text-white" aria-label={t('Selected', 'चुना गया')} />}</div>
                               <div className={`mt-1.5 flex items-start gap-1.5 text-xs font-bold leading-snug ${tone}`}>
                                 <span className="mt-[5px] size-2 shrink-0 rounded-full bg-current" />
                                 <span className="min-w-0">{t(...label)}</span>

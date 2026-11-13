@@ -3,8 +3,8 @@ import { motion } from 'framer-motion'
 import { Html5Qrcode } from 'html5-qrcode'
 import { Camera, CameraOff, Check, DoorOpen, ScanLine, X, Users, UserCheck } from 'lucide-react'
 import { useLang } from '../lib/lang.jsx'
-import { Btn } from './ui.jsx'
-import { EVENT, kundLabel, checkInMember, describeError, fmtDate, fmtTime, recentScans, scanPass } from '../lib/db.js'
+import { Btn, KundTag } from './ui.jsx'
+import { EVENT, checkInMember, describeError, fmtDate, fmtTime, recentScans, scanPass } from '../lib/db.js'
 
 // Shared by the admin console (kind="admin", explicit sessionId) and the volunteer page (kind="staff":
 // the session comes from the scanner account on the server). Scan a family pass, then mark EACH member
@@ -121,18 +121,18 @@ export default function Scanner({ kind = 'staff', sessionId }) {
               </div>
               {R.booking_number && (
                 <div className="space-y-1 bg-black/20 p-4 text-sm sm:p-5">
-                  <div className="flex flex-wrap items-center gap-2 text-lg font-bold">{R.coordinator_name} <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-sm"><Users size={13} />{R.member_count}</span></div>
+                  <div className="flex flex-wrap items-center gap-2 text-lg font-bold leading-snug [overflow-wrap:anywhere]">{R.coordinator_name} <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-sm"><Users size={13} />{R.member_count}</span></div>
                   <div className="break-all">{R.booking_number}{R.primary_mobile_masked ? ` · +91 ${R.primary_mobile_masked}` : ''}</div>
-                  {valid && <div className="text-base font-bold">{kundLabel(R.kund_number, t)} · {sessLabel(R.session)}</div>}
+                  {valid && <div className="text-base font-bold leading-snug"><KundTag k={R.kund_number} /><span className="block font-semibold opacity-90">{sessLabel(R.session)}</span></div>}
                   {!valid && upcoming.length > 0 && <div>{t('Booked for', 'पंजीकृत')}: {upcoming.map((s) => `${sessLabel(s)} (${fmtTime(EVENT.sessions[s.slot.toLowerCase()].start)})`).join(', ')}</div>}
                 </div>
               )}
               {valid && (
                 <div className="space-y-2 bg-white p-3 text-slate-800 sm:p-4">
-                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500"><span>{t('Tap each member as they enter', 'प्रत्येक सदस्य के प्रवेश पर दबाएँ')}</span><span>{R.checked_in_count}/{R.member_count}</span></div>
+                  <div className="flex items-start justify-between gap-3 text-xs font-bold uppercase tracking-wider text-slate-500"><span className="min-w-0">{t('Tap each member as they enter', 'प्रत्येक सदस्य के प्रवेश पर दबाएँ')}</span><span className="shrink-0 tabular-nums">{R.checked_in_count}/{R.member_count}</span></div>
                   {R.roster.map((m) => (
-                    <button key={m.member_number} disabled={busy || m.checked_in} onClick={() => mark([m.member_number])} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition ${m.checked_in ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 hover:border-saffron-400 active:scale-[.98]'}`}>
-                      <span className="min-w-0 truncate">{m.member_number}. {m.full_name}{m.age ? <span className="font-normal text-slate-500"> · {m.age}</span> : null}</span>
+                    <button key={m.member_number} disabled={busy || m.checked_in} onClick={() => mark([m.member_number])} className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition ${m.checked_in ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 hover:border-saffron-400 active:scale-[.98]'}`}>
+                      <span className="min-w-0 leading-snug [overflow-wrap:anywhere]">{m.member_number}. {m.full_name}{m.age ? <span className="font-normal text-slate-500"> · {m.age}</span> : null}</span>
                       {m.checked_in ? <span className="flex shrink-0 items-center gap-1 text-xs"><Check size={14} />{new Date(m.checked_in_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span> : <span className="shrink-0 rounded-full bg-saffron-500 px-3 py-1 text-xs text-white">{t('Enter', 'प्रवेश')}</span>}
                     </button>
                   ))}
@@ -148,7 +148,7 @@ export default function Scanner({ kind = 'staff', sessionId }) {
           <div className="divide-y divide-slate-100">
             {groups.slice(0, 6).map((g) => (
               <div key={g.k} className="flex items-center justify-between gap-3 py-2 text-sm">
-                <span className="min-w-0"><b className="block truncate text-slate-800">{g.coordinator_name}</b><span className="block truncate text-xs text-slate-500">{g.booking_number} · {kundLabel(g.kund_number, t)}</span></span>
+                <span className="min-w-0"><b className="block leading-snug text-slate-800 [overflow-wrap:anywhere]">{g.coordinator_name}</b><span className="block text-xs leading-snug text-slate-500">{g.booking_number} · <KundTag k={g.kund_number} /></span></span>
                 <span className="shrink-0 text-right text-xs text-slate-500"><b className="block text-emerald-600">{g.n}/{g.member_count} ✔</b>{new Date(g.checked_in_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
             ))}

@@ -1,4 +1,20 @@
 // Small dependency-free SVG charts. Colours are passed in so the dashboard owns the palette.
+import { useEffect, useRef, useState } from 'react'
+
+// The line/bar charts are drawn at their real pixel width (not a fixed 640-unit viewBox scaled down),
+// so axis labels stay ~11-12px on a phone instead of shrinking to ~5px.
+function useBoxWidth(fallback = 640) {
+  const ref = useRef(null)
+  const [w, setW] = useState(fallback)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(([e]) => { const x = Math.round(e.contentRect.width); if (x) setW(x) })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return [ref, w]
+}
 
 export const PAL = { maroon: '#7a1a2d', saffron: '#f47b20', gold: '#c99a2e', emerald: '#059669', sky: '#0284c7', slate: '#94a3b8', rose: '#e11d48' }
 
@@ -6,14 +22,18 @@ const nice = (m) => { if (m <= 5) return 5; const p = 10 ** Math.floor(Math.log1
 
 export function StackedBars({ data, keys, colors, height = 240, fmt = (v) => v }) {
   // data: [{label, a:..,b:..}] keys: ['a','b']
-  const W = 640, H = height, L = 40, B = 28, T = 10
+  const [ref, W] = useBoxWidth()
+  const H = Math.min(height, Math.max(170, W * 0.6)), L = 44, B = 24, T = 10
   const max = nice(Math.max(1, ...data.map((d) => keys.reduce((s, k) => s + d[k], 0))))
   const bw = (W - L) / data.length
   const y = (v) => T + (H - T - B) * (1 - v / max)
+  // narrow chart: "14 Dec" -> "14"
+  const lab = (l) => (bw < 52 ? String(l).split(' ')[0] : l)
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img">
+    <div ref={ref} className="w-full min-w-0">
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block max-w-full" role="img">
       {[0, .25, .5, .75, 1].map((p) => (
-        <g key={p}><line x1={L} x2={W} y1={y(max * p)} y2={y(max * p)} stroke="#e2e8f0" strokeDasharray={p ? '3 4' : ''} /><text x={L - 6} y={y(max * p) + 4} textAnchor="end" fontSize="15" fill="#94a3b8">{fmt(Math.round(max * p))}</text></g>
+        <g key={p}><line x1={L} x2={W} y1={y(max * p)} y2={y(max * p)} stroke="#e2e8f0" strokeDasharray={p ? '3 4' : ''} /><text x={L - 6} y={y(max * p) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">{fmt(Math.round(max * p))}</text></g>
       ))}
       {data.map((d, i) => {
         let acc = 0
@@ -23,30 +43,35 @@ export function StackedBars({ data, keys, colors, height = 240, fmt = (v) => v }
               const h = (d[k] / max) * (H - T - B), yy = y(acc) - h; acc += d[k]
               return h > 0 ? <rect key={k} x={L + i * bw + bw * .2} y={yy} width={bw * .6} height={h} rx={j === keys.length - 1 ? 6 : 0} fill={colors[j]}><title>{`${d.label} · ${k}: ${d[k]}`}</title></rect> : null
             })}
-            <text x={L + i * bw + bw / 2} y={H - 9} textAnchor="middle" fontSize="15" fill="#64748b">{d.label}</text>
+            <text x={L + i * bw + bw / 2} y={H - 7} textAnchor="middle" fontSize="11" fill="#64748b">{lab(d.label)}</text>
           </g>
         )
       })}
     </svg>
+    </div>
   )
 }
 
 export function Area({ data, color = PAL.maroon, height = 200 }) {
-  const W = 640, H = height, L = 34, B = 26, T = 10
+  const [ref, W] = useBoxWidth()
+  const H = Math.min(height, Math.max(150, W * 0.5)), L = 34, B = 22, T = 10
+  const every = W < 420 ? 3 : 2 // fewer date labels when narrow
   const max = nice(Math.max(1, ...data.map((d) => d.n)))
   const x = (i) => L + (i * (W - L - 8)) / (data.length - 1)
   const y = (v) => T + (H - T - B) * (1 - v / max)
   const line = data.map((d, i) => `${i ? 'L' : 'M'}${x(i)},${y(d.n)}`).join(' ')
   const id = 'g' + color.slice(1)
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+    <div ref={ref} className="w-full min-w-0">
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block max-w-full">
       <defs><linearGradient id={id} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".35" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient></defs>
-      {[0, .5, 1].map((p) => <g key={p}><line x1={L} x2={W} y1={y(max * p)} y2={y(max * p)} stroke="#e2e8f0" strokeDasharray="3 4" /><text x={L - 6} y={y(max * p) + 4} textAnchor="end" fontSize="15" fill="#94a3b8">{Math.round(max * p)}</text></g>)}
+      {[0, .5, 1].map((p) => <g key={p}><line x1={L} x2={W} y1={y(max * p)} y2={y(max * p)} stroke="#e2e8f0" strokeDasharray="3 4" /><text x={L - 6} y={y(max * p) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">{Math.round(max * p)}</text></g>)}
       <path d={`${line} L${x(data.length - 1)},${H - B} L${x(0)},${H - B} Z`} fill={`url(#${id})`} />
       <path d={line} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {data.map((d, i) => <circle key={i} cx={x(i)} cy={y(d.n)} r="3.5" fill="#fff" stroke={color} strokeWidth="2"><title>{`${d.date}: ${d.n}`}</title></circle>)}
-      {data.map((d, i) => (i % 2 === 0 ? <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize="14" fill="#94a3b8">{d.date.slice(8)}/{d.date.slice(5, 7)}</text> : null))}
+      {data.map((d, i) => (i % every === 0 ? <text key={i} x={x(i)} y={H - 6} textAnchor="middle" fontSize="11" fill="#94a3b8">{d.date.slice(8)}/{d.date.slice(5, 7)}</text> : null))}
     </svg>
+    </div>
   )
 }
 
@@ -78,7 +103,7 @@ export function HBars({ rows, color = PAL.maroon }) {
     <div className="space-y-3">
       {rows.map(([l, v]) => (
         <div key={l}>
-          <div className="mb-1 flex justify-between text-xs font-semibold text-slate-600"><span className="truncate">{l}</span><span className="tabular-nums text-slate-900">{v.toLocaleString('en-IN')}</span></div>
+          <div className="mb-1 flex justify-between gap-3 text-xs font-semibold text-slate-600"><span className="min-w-0 truncate" title={l}>{l}</span><span className="shrink-0 tabular-nums text-slate-900">{v.toLocaleString('en-IN')}</span></div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${(v / max) * 100}%`, background: color }} /></div>
         </div>
       ))}
@@ -89,12 +114,12 @@ export function HBars({ rows, color = PAL.maroon }) {
 export function Columns({ rows, color = PAL.saffron, height = 150 }) {
   const max = Math.max(1, ...rows.map((r) => r[1]))
   return (
-    <div className="flex items-end gap-2" style={{ height }}>
+    <div className="flex items-end gap-1.5 sm:gap-2" style={{ height }}>
       {rows.map(([l, v]) => (
-        <div key={l} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+        <div key={l} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
           <span className="text-[11px] font-bold tabular-nums text-slate-700">{v || ''}</span>
           <div className="w-full rounded-t-lg" style={{ height: `${(v / max) * 78}%`, minHeight: v ? 3 : 0, background: color }} title={`${l}: ${v}`} />
-          <span className="text-[11px] text-slate-500">{l}</span>
+          <span className="max-w-full text-center text-[11px] leading-tight text-slate-500 [overflow-wrap:anywhere]">{l}</span>
         </div>
       ))}
     </div>
@@ -105,7 +130,7 @@ export function Heat({ rows, cols, get }) {
   // get(row, col) -> 0..100
   const shade = (p) => `rgba(122,26,45,${.08 + (p / 100) * .85})`
   return (
-    <div className="grid gap-1.5" style={{ gridTemplateColumns: `64px repeat(${cols.length}, 1fr)` }}>
+    <div className="grid gap-1.5" style={{ gridTemplateColumns: `auto repeat(${cols.length}, minmax(0, 1fr))` }}>
       <span />
       {cols.map((c) => <span key={c} className="text-center text-[11px] font-bold text-slate-500">{c}</span>)}
       {rows.map((r) => (

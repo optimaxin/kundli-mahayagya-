@@ -31,7 +31,7 @@ export default function Home() {
         <Mandala className="spin-slower absolute -bottom-56 -left-48 w-[620px] opacity-10" rings={3} />
         <div className="relative mx-auto max-w-6xl px-3 pt-3 sm:px-4 sm:pt-4">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6 }} className="rounded-2xl bg-gradient-to-br from-gold-300 to-gold-500 p-1 shadow-[0_20px_50px_-15px_rgba(0,0,0,.6)] sm:rounded-3xl sm:p-1.5">
-            <img src="/banner.jpg" width="1600" height="600" fetchpriority="high" alt={t('2151 Kundiya Mrityunjay Maa Pitambara Mahayagya, Agra', 'आगरा में 2151 कुंडीय मृत्युंजय माँ पीतांबरा महायज्ञ')} className="block h-auto w-full rounded-xl sm:rounded-[1.25rem]" />
+            <img src="/banner.jpg" width="1600" height="600" fetchPriority="high" alt={t('2151 Kundiya Mrityunjay Maa Pitambara Mahayagya, Agra', 'आगरा में 2151 कुंडीय मृत्युंजय माँ पीतांबरा महायज्ञ')} className="block h-auto w-full rounded-xl sm:rounded-[1.25rem]" />
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6, delay: .15 }} className="py-4 text-center sm:py-5">

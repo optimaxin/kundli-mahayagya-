@@ -48,7 +48,7 @@ html[lang="hi"] .font-display { font-family: "Yatra One", "Cinzel", serif; font-
 }
 .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .ticket-notch::before, .ticket-notch::after {
-  content: ""; position: absolute; top: 62%; width: 28px; height: 28px; border-radius: 9999px;
+  content: ""; position: absolute; top: 50%; margin-top: -14px; width: 28px; height: 28px; aspect-ratio: 1; border-radius: 9999px;
   background: var(--color-cream);
 }
 .ticket-notch::before { left: -14px; }

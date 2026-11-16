@@ -22,7 +22,7 @@ python -m venv .venv && . .venv/bin/activate        # Windows: .venv\Scripts\act
 pip install -r requirements-dev.txt
 cp .env.example .env                                # dev defaults work as-is
 docker compose up -d db
-alembic upgrade head                                # migrations 0001-0003
+alembic upgrade head                                # migrations 0001-0004
 python -m scripts.seed_all                          # 16 sessions, 2,151 kunds
 python -m scripts.create_admin --email admin@example.org --name "Event Admin"        # prompts for a password
 python -m scripts.create_admin --email gate1@example.org --name "Gate 1" --role SCANNER --session 1

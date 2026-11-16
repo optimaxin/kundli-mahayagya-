@@ -18,17 +18,43 @@ def ends_at(session: EventSession) -> datetime:
     return clock.local_datetime(session.event_date, session.end_time)
 
 
-def booking_block_reason(session: EventSession, now: datetime | None = None) -> str | None:
-    """Return why this session cannot be booked right now, or None if bookable."""
+# Machine-readable reasons a session cannot be booked (``reason_code`` in errors, ``closed_reason`` publicly).
+SESSION_FULL = "SESSION_FULL"  # the organisers closed the session to new bookings (status CLOSED): shown as "Session Full"
+CUTOFF = "CUTOFF"  # past the booking cut-off before the session starts
+NOT_OPEN = "NOT_OPEN"  # inactive, completed or cancelled
+
+
+def booking_block(session: EventSession, now: datetime | None = None) -> tuple[str, str] | None:
+    """Return ``(reason_code, message)`` if this session cannot be booked right now, else None.
+
+    This is the single source of truth for "can a NEW booking be made for this session". Registration
+    checks it twice (up front, and again under the allocation lock) and the public session list uses it,
+    so a locked session is refused everywhere, including direct API calls. It only concerns new bookings:
+    existing reservations, QR passes and check-in never consult it.
+    """
     now = now or clock.now()
     if not session.is_active:
-        return "Session is not active"
+        return NOT_OPEN, "Session is not active"
+    if session.status == EventSessionStatus.CLOSED.value:
+        return SESSION_FULL, "Session is full and closed to new bookings"
     if session.status != EventSessionStatus.SCHEDULED.value:
-        return f"Session is {session.status.lower()} for booking"
+        return NOT_OPEN, f"Session is {session.status.lower()} for booking"
     cutoff = starts_at(session) - timedelta(minutes=get_settings().BOOKING_CUTOFF_MINUTES)
     if now >= cutoff:
-        return "Booking for this session has closed"
+        return CUTOFF, "Booking for this session has closed"
     return None
+
+
+def booking_block_reason(session: EventSession, now: datetime | None = None) -> str | None:
+    """Return why this session cannot be booked right now, or None if bookable."""
+    blocked = booking_block(session, now)
+    return blocked[1] if blocked else None
+
+
+def closed_reason(session: EventSession, now: datetime | None = None) -> str | None:
+    """Public, machine-readable reason a session is closed (None while it is open)."""
+    blocked = booking_block(session, now)
+    return blocked[0] if blocked else None
 
 
 MAX_FAMILY_SIZE = 8

@@ -19,7 +19,9 @@
   `event_sessions` mean one session is the hotspot. This is expected for popular sessions
   and is bounded by `lock_timeout`.
 * To close booking for a session: `PATCH /api/v1/sessions/{id} {"status": "CLOSED"}`
-  (audited).
+  (audited). It only stops NEW bookings: existing reservations, QR passes and check-in are unaffected, and the
+  public site shows it as "सत्र पूर्ण" / "Session Full" with a lock. Migration 0004 closes session 1
+  (14 Dec 2026 MORNING) this way; re-open with `{"status": "SCHEDULED"}`.
 * If a Kund is unusable (for example damaged), deactivate it so it receives no new
   allocations: `UPDATE kunds SET is_active=false WHERE kund_number=…`. Families already in
   it keep their place. Contact them separately if they need to move.

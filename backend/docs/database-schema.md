@@ -10,6 +10,9 @@ PostgreSQL 16 (compatible with Supabase). Migrations live in `alembic/versions/`
   `relationship`, `mobile`; optional `address`, `pincode`, `gotra`, `sankalp_purpose`;
   `kund_session_capacity.is_blocked` with a trigger that only allows blocking an empty Kund.
 
+* `0004_lock_14_dec_morning_session.py`: data only, no schema change. Sets `event_sessions.status = 'CLOSED'`
+  for 14 Dec 2026 MORNING if it is still `SCHEDULED` (idempotent, audited, downgrade is a no-op).
+
 `alembic check` reports no drift between the models and the migrations.
 
 ## Seed data (`python -m scripts.seed_all`)

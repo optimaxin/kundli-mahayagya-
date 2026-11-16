@@ -25,6 +25,14 @@ class PublicSessionAvailabilityOut(SessionOut):
     """Public session picker row. Carries NO capacity numbers by design."""
 
     booking_open: bool
+    closed_reason: Literal["SESSION_FULL", "CUTOFF", "NOT_OPEN"] | None = Field(
+        None,
+        description=(
+            "Why booking is closed (null while open). SESSION_FULL: the organisers closed the session to new "
+            "bookings (shown as 'Session Full' / 'सत्र पूर्ण' with a lock). CUTOFF: past the booking cut-off. "
+            "NOT_OPEN: inactive, completed or cancelled."
+        ),
+    )
     family_size: int = Field(..., description="Family size this availability was computed for (1-8)")
     availability: Literal["AVAILABLE", "NOT_FOR_THIS_FAMILY", "FULL", "CLOSED"] = Field(
         ...,

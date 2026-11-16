@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models import EventSession, Kund, KundSessionCapacity
-from app.models.enums import SessionSlot
+from app.models.enums import EventSessionStatus, SessionSlot
+
+# Sessions that are created already closed to new bookings ("Session Full"), as (event date, slot). Matches
+# migration 0004. Applied ONLY when the session row is created: an existing session is never touched, so an
+# administrator's later change (re-open, complete) survives re-seeding.
+CLOSED_AT_CREATION: frozenset[tuple[date, str]] = frozenset({(date(2026, 12, 14), SessionSlot.MORNING.value)})
 
 
 @dataclass
@@ -41,12 +46,13 @@ def seed_sessions(db: Session) -> int:
         rows.append((day * 2 + 1, d, SessionSlot.MORNING.value, s.MORNING_START, s.MORNING_END))
         rows.append((day * 2 + 2, d, SessionSlot.AFTERNOON.value, s.AFTERNOON_START, s.AFTERNOON_END))
     for sid, d, slot, start, end in rows:
+        status = EventSessionStatus.CLOSED.value if (d, slot) in CLOSED_AT_CREATION else EventSessionStatus.SCHEDULED.value
         db.execute(
             text(
-                "INSERT INTO event_sessions (id, event_date, slot, start_time, end_time) "
-                "VALUES (:id, :d, :slot, :st, :et) ON CONFLICT (id) DO NOTHING"
+                "INSERT INTO event_sessions (id, event_date, slot, start_time, end_time, status) "
+                "VALUES (:id, :d, :slot, :st, :et, :status) ON CONFLICT (id) DO NOTHING"
             ),
-            {"id": sid, "d": d, "slot": slot, "st": start, "et": end},
+            {"id": sid, "d": d, "slot": slot, "st": start, "et": end, "status": status},
         )
     created = _ensure_capacity_rows(db)
     return created

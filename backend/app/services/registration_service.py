@@ -137,6 +137,20 @@ class RegistrationService:
         # 3. A family may book the morning, the afternoon or BOTH sessions of a date (each selected
         #    session gets its own Kund). Duplicate session ids are rejected by the request schema.
 
+        # Sessions closed to new bookings (locked/closed by the organisers, past the cut-off, inactive) are
+        # refused first, before any lock is taken or row written. The whole request fails, so a multi-session
+        # booking that contains one such session reserves nothing at all.
+        blocked = [
+            {"session_id": sid, "reason": block[1], "reason_code": block[0]}
+            for sid in session_ids
+            if (block := session_service.booking_block(sessions[sid]))
+        ]
+        if blocked:
+            raise ValidationFailed(
+                "One or more selected sessions are not open for booking", code="SESSION_NOT_BOOKABLE",
+                details={"sessions": blocked},
+            )
+
         # 4. duplicate-booking guard (serialised per mobile number): the same mobile may not hold two
         #    confirmed reservations for the SAME session. Other sessions, same date included, are fine.
         if settings.ENFORCE_UNIQUE_MOBILE_PER_SESSION:
@@ -148,16 +162,6 @@ class RegistrationService:
                     code="DUPLICATE_BOOKING",
                     details={"sessions": dup},
                 )
-        blocked = [
-            {"session_id": sid, "reason": reason}
-            for sid in session_ids
-            if (reason := session_service.booking_block_reason(sessions[sid]))
-        ]
-        if blocked:
-            raise ValidationFailed(
-                "One or more selected sessions are not open for booking", code="SESSION_NOT_BOOKABLE",
-                details={"sessions": blocked},
-            )
 
         # 4. booking + members
         values = {

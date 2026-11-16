@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Flame, Plus, Trash2, User, Users, CalendarCheck, ClipboardCheck, Sunrise, Sunset, AlertCircle, Info } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Flame, Plus, Trash2, User, Users, CalendarCheck, ClipboardCheck, Sunrise, Sunset, AlertCircle, Info, Lock } from 'lucide-react'
 import { useLang } from '../lib/lang.jsx'
 import { Btn, Field, inputCls } from '../components/ui.jsx'
+import { isSessionLocked as isLocked, sessionStatusView } from '../lib/sessionStatus.js'
 import { EVENT, createBooking, describeError, fmtDate, fmtTime, loadSlots, newKey, slotAvailability, slotsError, useSlots } from '../lib/db.js'
 
 const STATES = ['Uttar Pradesh', 'Delhi', 'Rajasthan', 'Madhya Pradesh', 'Haryana', 'Uttarakhand', 'Bihar', 'Gujarat', 'Maharashtra', 'Punjab', 'Himachal Pradesh', 'Jharkhand', 'Chhattisgarh', 'West Bengal', 'Karnataka', 'Tamil Nadu', 'Telangana', 'Andhra Pradesh', 'Kerala', 'Odisha', 'Assam', 'Other']
@@ -103,7 +104,8 @@ export default function Register() {
   const toggleSlot = (date, session) => {
     const k = `${date}|${session}`
     // Morning and afternoon are independent: a family may pick either or both sessions of a date.
-    setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]))
+    // A session the server does not offer (full, closed, locked) can never be added, only removed.
+    setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : fits[k] ? [...p, k] : p))
     setErrs({})
   }
   // "All mornings" / "All afternoons" add to the current selection (both together = every session).
@@ -112,6 +114,14 @@ export default function Register() {
 
   const submit = async () => {
     if (!validate(3)) return
+    // Last check before submitting: never send a session the server has locked or closed (the server also refuses it).
+    const locked = picked.filter((k) => isLocked(avail[k]))
+    if (locked.length) {
+      setPicked((p) => p.filter((k) => !locked.includes(k)))
+      setBanner(t('A selected session is full and no longer accepts bookings. It was removed from your selection. Please choose another session.', 'चुना गया एक सत्र पूर्ण हो चुका है और अब बुकिंग स्वीकार नहीं कर रहा। उसे आपके चयन से हटा दिया गया है। कृपया दूसरा सत्र चुनें।'))
+      setDir(-1); setStep(2)
+      return
+    }
     if (!picked.length) { setDir(-1); setStep(2); setErrs({ slots: t('Pick at least one session', 'कम से कम एक सत्र चुनें') }); return }
     setBusy(true)
     setBanner('')
@@ -125,6 +135,14 @@ export default function Register() {
       nav(`/ticket/${encodeURIComponent(b.token)}?new=1`, { replace: true })
     } catch (err) {
       setBusy(false)
+      if (String(err.message).startsWith('CLOSED:')) {
+        // A selected session was closed to new bookings (e.g. locked by the organisers). Nothing was booked.
+        keyRef.current = newKey()
+        setBanner(t('A selected session is full and no longer accepts bookings. It was removed from your selection. Please choose another session.', 'चुना गया एक सत्र पूर्ण हो चुका है और अब बुकिंग स्वीकार नहीं कर रहा। उसे आपके चयन से हटा दिया गया है। कृपया दूसरा सत्र चुनें।'))
+        setPicked((p) => p.filter((k) => !String(err.message).includes(k)))
+        setDir(-1); setStep(2)
+        return
+      }
       if (String(err.message).startsWith('FULL:')) {
         keyRef.current = newKey()
         setBanner(t('Sorry, a selected session can no longer seat your whole family together. Please choose another.', 'क्षमा करें, चुने गए सत्र में अब आपके पूरे परिवार के लिए एक साथ स्थान उपलब्ध नहीं है। कृपया दूसरा सत्र चुनें।'))
@@ -278,14 +296,14 @@ export default function Register() {
                         </div>
                         {Object.keys(EVENT.sessions).map((s) => {
                           const k = `${d}|${s}`, st = avail[k], can = fits[k], on = picked.includes(k)
-                          const [label, tone] = STATUS[st.status] || STATUS.loading
+                          const { label, tone, locked } = sessionStatusView(st)
                           return (
-                            <button key={s} type="button" disabled={!can} onClick={() => toggleSlot(d, s)} className={`relative overflow-hidden rounded-2xl border-2 p-2.5 text-left transition active:scale-[.97] ${on ? 'border-saffron-500 bg-saffron-50 shadow-md' : can ? 'border-stone-200 bg-white hover:border-saffron-300' : 'border-stone-200 bg-stone-100 opacity-60'}`}>
+                            <button key={s} type="button" disabled={!can} aria-disabled={!can} data-locked={locked || undefined} onClick={() => toggleSlot(d, s)} className={`relative overflow-hidden rounded-2xl border-2 p-2.5 text-left transition active:scale-[.97] ${on ? 'border-saffron-500 bg-saffron-50 shadow-md' : can ? 'border-stone-200 bg-white hover:border-saffron-300' : 'border-stone-200 bg-stone-100 opacity-60'}`}>
                               {/* the tick lives on the time row so it can never clip the session name */}
                               <span className="flex min-w-0 items-center gap-1 text-[13px] font-bold leading-snug text-maroon-900">{s === 'morning' ? <Sunrise size={14} className="hidden shrink-0 min-[400px]:block" /> : <Sunset size={14} className="hidden shrink-0 min-[400px]:block" />}<span className="min-w-0">{t(EVENT.sessions[s].en, EVENT.sessions[s].hi)}</span></span>
                               <div className="mt-0.5 flex items-center justify-between gap-1 text-xs tabular-nums text-stone-500"><span>{fmtTime(EVENT.sessions[s].start)}</span>{on && <Check size={16} className="shrink-0 rounded-full bg-saffron-500 p-0.5 text-white" aria-label={t('Selected', 'चुना गया')} />}</div>
                               <div className={`mt-1.5 flex items-start gap-1.5 text-xs font-bold leading-snug ${tone}`}>
-                                <span className="mt-[5px] size-2 shrink-0 rounded-full bg-current" />
+                                {locked ? <Lock size={14} className="mt-px shrink-0" aria-hidden="true" /> : <span className="mt-[5px] size-2 shrink-0 rounded-full bg-current" />}
                                 <span className="min-w-0">{t(...label)}</span>
                               </div>
                             </button>
@@ -335,16 +353,6 @@ export default function Register() {
       </div>
     </div>
   )
-}
-
-// Public status labels for the session picker. Deliberately no seat counts.
-const STATUS = {
-  AVAILABLE: [['Booking available', 'बुकिंग उपलब्ध'], 'text-emerald-700'],
-  NOT_FOR_THIS_FAMILY: [['Fully booked', 'बुकिंग पूर्ण'], 'text-saffron-600'],
-  FULL: [['Session full', 'सत्र पूर्ण'], 'text-red-600'],
-  CLOSED: [['Booking closed', 'बुकिंग बंद'], 'text-stone-500'],
-  error: [['Could not load', 'लोड नहीं हो सका'], 'text-red-600'],
-  loading: [['Checking…', 'जाँच हो रही है…'], 'text-stone-400'],
 }
 
 const Head = ({ h, p }) => (<div><h2 className="font-display text-2xl text-maroon-900 md:text-3xl">{h}</h2><p className="mt-1 text-sm text-stone-600">{p}</p></div>)

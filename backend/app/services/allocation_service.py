@@ -72,12 +72,14 @@ class AllocationService:
         if missing:
             raise ValidationFailed("Invalid session selection", code="INVALID_SESSION", details={"invalid_sessions": missing})
         # Re-validate under the lock (an admin may have closed a session meanwhile).
-        blocked = {s.id: r for s in locked if (r := session_service.booking_block_reason(s))}
+        blocked = {s.id: b for s in locked if (b := session_service.booking_block(s))}
         if blocked:
             raise ValidationFailed(
                 "One or more selected sessions are not open for booking",
                 code="SESSION_NOT_BOOKABLE",
-                details={"sessions": [{"session_id": k, "reason": v} for k, v in blocked.items()]},
+                details={
+                    "sessions": [{"session_id": k, "reason": b[1], "reason_code": b[0]} for k, b in blocked.items()]
+                },
             )
 
         allocations: list[Allocation] = []

@@ -58,6 +58,13 @@ DURING_SESSION_1 = datetime(2026, 12, 14, 8, 5, tzinfo=IST)
 # Session 1 has ended (no-shows computable), session 2 (afternoon 13:00-16:00) has not.
 AFTER_SESSION_1 = datetime(2026, 12, 14, 12, 0, tzinfo=IST)
 
+# Status of the 14 Dec MORNING session (id 1) straight after a fresh `alembic upgrade head` + seed, i.e. what a
+# new environment gets. Production locks it (migration 0004 / seed); the shared test baseline below re-opens it
+# so the ~190 other tests, which book session 1, keep exercising ordinary bookings. tests/integration/
+# test_session_lock.py locks it again explicitly.
+LOCKED_SESSION_ID = 1
+FRESH_STATUS_OF_LOCKED_SESSION: dict[str, str] = {}
+
 TRANSACTIONAL_TABLES = [
     "attendance_checkins", "cancellation_events", "qr_passes", "booking_sessions", "family_members",
     "bookings", "idempotency_records", "audit_logs", "report_jobs", "admin_users",
@@ -91,6 +98,11 @@ def database() -> Iterator[None]:
     with get_sessionmaker()() as db:
         report = seed_all(db)
         assert report.expected_ok, report
+        FRESH_STATUS_OF_LOCKED_SESSION["status"] = db.execute(
+            text("SELECT status FROM event_sessions WHERE id = :i"), {"i": LOCKED_SESSION_ID}
+        ).scalar_one()
+        db.execute(text("UPDATE event_sessions SET status = 'SCHEDULED' WHERE id = :i"), {"i": LOCKED_SESSION_ID})
+        db.commit()
     yield
     reset_engine()
 

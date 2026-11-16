@@ -37,7 +37,7 @@ Every response carries an `X-Request-ID` header. Quote it in support requests.
 | 403 | `FORBIDDEN` |
 | 404 | `NOT_FOUND`, `INVALID_QR` |
 | 409 | `CAPACITY_UNAVAILABLE`, `DUPLICATE_BOOKING`, `RESERVATION_HAS_CHECKINS`, `SESSION_COMPLETED`, `EMAIL_EXISTS`, `IDEMPOTENCY_IN_PROGRESS` |
-| 422 | `VALIDATION_ERROR` (with per-field `details`), `INVALID_SESSION`, `SESSION_NOT_BOOKABLE`, `IDEMPOTENCY_KEY_REUSED`, `INVALID_BOOKING_NUMBER` |
+| 422 | `VALIDATION_ERROR` (with per-field `details`), `INVALID_SESSION`, `SESSION_NOT_BOOKABLE` (`details.sessions[]` = `{session_id, reason, reason_code}`; the whole booking is refused and nothing is reserved), `IDEMPOTENCY_KEY_REUSED`, `INVALID_BOOKING_NUMBER` |
 | 429 | `RATE_LIMITED`, `ACCOUNT_LOCKED` (both send `Retry-After`) |
 | 503 | `SERVICE_BUSY` (admission control or lock contention), `DATABASE_UNAVAILABLE` (both send `Retry-After`; safe to retry with the same `Idempotency-Key`) |
 
@@ -148,7 +148,10 @@ Behaviour:
   sessions with `booking_open`, `family_size`, `fits_family` and `availability`:
   `AVAILABLE` (at least one Kund can seat the whole family together), `NOT_FOR_THIS_FAMILY`
   (places remain, but no single Kund fits this family; a smaller family may still fit), `FULL`
-  (no Kund has any free place) or `CLOSED` (not open for booking). **No capacity numbers are
+  (no Kund has any free place) or `CLOSED` (not open for booking). `closed_reason` says why a
+  session is closed (`null` while open): `SESSION_FULL` (an administrator closed it to new
+  bookings; shown as "सत्र पूर्ण" / "Session Full" with a lock; the 14 Dec 2026 MORNING session),
+  `CUTOFF` (booking cut-off passed) or `NOT_OPEN` (inactive, completed, cancelled). **No capacity numbers are
   returned** (no remaining or reserved places, no Kund occupancy). The frontend passes the number
   of family members already entered on the form. This is informational only: the Kund is picked
   by best fit and locked inside the booking transaction, which re-checks everything.

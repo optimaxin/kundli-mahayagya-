@@ -154,7 +154,7 @@ export async function loadSlots(familySize = slotWanted ?? 1) {
   const next = {}
   for (const s of data) {
     if (s.family_size !== n) continue
-    next[sk(s.event_date, slotUi(s.slot))] = { id: s.id, open: s.booking_open, status: s.availability, fits: s.fits_family }
+    next[sk(s.event_date, slotUi(s.slot))] = { id: s.id, open: s.booking_open, status: s.availability, fits: s.fits_family, closedReason: s.closed_reason ?? null }
   }
   slotCache = next
   slotFamily = n
@@ -270,6 +270,15 @@ export async function createBooking({ coordinator: c, members, slots }, idempote
       const keys = [...new Set([...ids, ...full])].map((id) => { const s = slotOf(id); return sk(s.date, s.session) })
       loadSlots(members.length).catch(() => {})
       const e = new Error(`FULL:${keys.join(',')}`)
+      e.api = err
+      throw e
+    }
+    if (err instanceof ApiError && err.code === 'SESSION_NOT_BOOKABLE') {
+      // The server refused a session that is closed to new bookings (e.g. the organisers locked it after the
+      // page was opened). Nothing was booked. The picker drops these sessions and refreshes.
+      const keys = (err.details?.sessions || []).map((x) => { const s = slotOf(x.session_id); return sk(s.date, s.session) })
+      loadSlots(members.length).catch(() => {})
+      const e = new Error(`CLOSED:${keys.join(',')}`)
       e.api = err
       throw e
     }

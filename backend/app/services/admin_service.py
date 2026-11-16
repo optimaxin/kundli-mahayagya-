@@ -119,7 +119,7 @@ class AdminService:
         out = []
         for s in repo.list_all():
             st = stats.get(s.id)
-            booking_open = session_service.booking_block_reason(s) is None
+            booking_open = session_service.booking_block(s) is None
             availability = session_service.family_availability(
                 booking_open=booking_open,
                 largest_free_block=st.largest_free_block if st else 0,
@@ -135,6 +135,7 @@ class AdminService:
                     "status": s.status,
                     "is_active": s.is_active,
                     "booking_open": booking_open,
+                    "closed_reason": session_service.closed_reason(s),
                     "family_size": family_size,
                     "availability": availability,
                     "fits_family": availability == session_service.AVAILABLE,

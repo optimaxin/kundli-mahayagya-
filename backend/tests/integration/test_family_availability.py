@@ -27,7 +27,7 @@ from tests.conftest import (
 
 PUBLIC_SESSION_KEYS = {
     "id", "event_date", "slot", "start_time", "end_time", "status", "is_active",
-    "booking_open", "family_size", "availability", "fits_family",
+    "booking_open", "closed_reason", "family_size", "availability", "fits_family",
 }  # fmt: skip
 # Session 1 = 14 Dec MORNING, session 2 = 14 Dec AFTERNOON (same date).
 MORNING, AFTERNOON = 1, 2
